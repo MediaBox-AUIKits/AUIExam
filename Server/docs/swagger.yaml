@@ -1,0 +1,583 @@
+definitions:
+  auth.authResponse:
+    properties:
+      expire:
+        type: string
+      token:
+        type: string
+    type: object
+  auth.login:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handler.ExamTokenRequest:
+    properties:
+      deviceId:
+        example: 设备id：DEVICE-ID
+        type: string
+      deviceType:
+        example: 设备类型：android/ios/web/win/mac
+        type: string
+      userId:
+        example: 用户id:foo
+        type: string
+    required:
+    - deviceId
+    - deviceType
+    - userId
+    type: object
+  handler.ExamTokenResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  handler.SelectAudioRequest:
+    properties:
+      classify:
+        description: 分类
+        example: 2
+        type: integer
+      name:
+        description: 名字
+        example: 音频名字
+        type: string
+      pageNum:
+        description: 页数
+        example: 10
+        type: integer
+      pageSize:
+        description: 页面大小
+        example: 10
+        type: integer
+    required:
+    - classify
+    - pageNum
+    - pageSize
+    type: object
+  handler.UpdateRoomAudioStatusRequest:
+    properties:
+      audioStatus:
+        description: 考场口播状态, 0：未口播,1：正在口播
+        example: 1
+        type: integer
+      id:
+        description: 考场名称
+        example: 718d3bf9-831a-424e-94e1-ce64043a
+        type: string
+    required:
+    - audioStatus
+    - id
+    type: object
+  handler.UserListRequest:
+    properties:
+      roomId:
+        description: 考场名称
+        example: 718d3bf9-831a-424e-94e1-ce64043a
+        type: string
+    required:
+    - roomId
+    type: object
+  handler.createRoomRequest:
+    properties:
+      name:
+        description: 考场名称
+        example: 考场名称-2024全国本科艺术考试第0001考场
+        type: string
+    required:
+    - name
+    type: object
+  models.ExamAudioInfo:
+    properties:
+      classify:
+        description: 分类
+        type: integer
+      id:
+        description: 名字
+        type: string
+      name:
+        description: 名字
+        type: string
+      url:
+        description: 地址
+        type: string
+    type: object
+  models.ExamHandlerResp:
+    properties:
+      data:
+        description: 数据
+      errorCode:
+        description: 异常码
+        type: string
+      errorMsg:
+        description: 异常信息
+        type: string
+      success:
+        description: 是否成功
+        type: boolean
+    type: object
+  models.ExamRoomInfo:
+    properties:
+      audioStatus:
+        description: 考场口播状态，0:未口播 1:正在口播
+        type: integer
+      createTeacher:
+        description: 考场创建者id
+        type: string
+      createdAt:
+        description: 创建时间
+        type: string
+      examId:
+        description: 考试ID
+        type: string
+      id:
+        description: 考场ID
+        type: string
+      imGroupId:
+        description: 消息组id
+        type: string
+      name:
+        description: 考场名称
+        type: string
+      status:
+        description: 考场状态, 0:进行中 1:已结束
+        type: integer
+      updatedAt:
+        description: 更新时间
+        type: string
+    type: object
+  models.ExamUserInfo:
+    properties:
+      id:
+        description: 用户id
+        type: string
+      name:
+        description: 昵称
+        type: string
+      rtcPullUrl:
+        description: 大流地址
+        type: string
+      rtcPushUrl:
+        description: 推流地址
+        type: string
+      rtsPullUrl:
+        description: 小流地址（转码低清晰度的流）
+        type: string
+      userStatus:
+        description: 状态
+        type: integer
+    type: object
+  models.Examination:
+    properties:
+      audioInfo:
+        description: 需要老师手动播放的音频
+        items:
+          $ref: '#/definitions/models.ExamAudioInfo'
+        type: array
+      createdAt:
+        description: 创建时间
+        type: string
+      endTime:
+        description: 结束时间
+        type: string
+      id:
+        description: 考试ID
+        type: string
+      name:
+        description: 考试名称
+        type: string
+      radioInfo:
+        description: 自动播放的音频 radioInfo
+      startTime:
+        description: 开始时间
+        type: string
+      updatedAt:
+        description: 更新时间
+        type: string
+    type: object
+  models.SelectAudioData:
+    properties:
+      endRow:
+        type: integer
+      hasNextPage:
+        type: boolean
+      hasPreviousPage:
+        type: boolean
+      isFirstPage:
+        type: boolean
+      isLastPage:
+        type: boolean
+      list:
+        items:
+          $ref: '#/definitions/models.ExamAudioInfo'
+        type: array
+      navigateFirstPage:
+        type: integer
+      navigateLastPage:
+        type: integer
+      navigatePages:
+        type: integer
+      navigatepageNums:
+        items:
+          type: integer
+        type: array
+      nextPage:
+        type: integer
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      pages:
+        type: integer
+      prePage:
+        type: integer
+      size:
+        type: integer
+      startRow:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.Status:
+    properties:
+      code:
+        type: integer
+      details: {}
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /createRoom:
+    post:
+      consumes:
+      - application/json
+      description: 创建考场
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.createRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ExamRoomInfo'
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 创建考场
+  /endRoom:
+    get:
+      consumes:
+      - application/json
+      description: 结束考场
+      parameters:
+      - description: 房间 ID
+        in: query
+        name: roomId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  type: boolean
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 结束考场
+  /examInfo:
+    get:
+      consumes:
+      - application/json
+      description: 获取考试信息
+      parameters:
+      - description: 考试 ID
+        in: query
+        name: examId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Examination'
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 获取考试信息
+  /getIMToken:
+    post:
+      consumes:
+      - application/json
+      description: 获取token
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ExamTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: '#/definitions/handler.ExamTokenResponse'
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.Status'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.Status'
+      summary: 获取TOKEN
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: App用户登陆
+      operationId: login
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.login'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: '#/definitions/auth.authResponse'
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.Status'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.Status'
+      summary: App用户登陆
+  /roomInfo:
+    get:
+      consumes:
+      - application/json
+      description: 获取考场信息
+      parameters:
+      - description: 房间 ID
+        in: query
+        name: roomId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ExamRoomInfo'
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 获取考场信息
+  /selectAudio:
+    post:
+      consumes:
+      - application/json
+      description: 查询系统音频列表
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SelectAudioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.SelectAudioData'
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 查询系统音频列表
+  /updateRoomAudioStatus:
+    post:
+      consumes:
+      - application/json
+      description: 更新考场口播状态
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateRoomAudioStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  type: boolean
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 更新考场口播状态
+  /userInfo:
+    get:
+      consumes:
+      - application/json
+      description: 获取用户信息
+      parameters:
+      - description: 用户id
+        in: query
+        name: userId
+        required: true
+        type: string
+      - description: 考场id
+        in: query
+        name: roomId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ExamUserInfo'
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 获取用户信息
+  /userList:
+    get:
+      consumes:
+      - application/json
+      description: 获取考场的学生列表
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UserListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.ExamHandlerResp'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.ExamUserInfo'
+                  type: array
+              type: object
+        "400":
+          description: 4xx, 客户端错误
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+        "500":
+          description: 5xx, 请求失败
+          schema:
+            $ref: '#/definitions/models.ExamHandlerResp'
+      summary: 获取考场的学生列表
+swagger: "2.0"
