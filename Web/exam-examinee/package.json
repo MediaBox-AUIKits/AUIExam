@@ -1,0 +1,44 @@
+{
+  "name": "exam-examinee",
+  "version": "1.0.2",
+  "scripts": {
+    "build": "umi build",
+    "dev": "umi dev",
+    "format": "prettier --write .",
+    "postinstall": "umi setup",
+    "setup": "umi setup",
+    "start": "npm run dev"
+  },
+  "dependencies": {
+    "@aliyun-sls/web-track-browser": "^0.0.3",
+    "@rongcloud/engine": "5.7.0",
+    "@rongcloud/imlib-next": "5.7.0",
+    "ali-oss": "^6.17.1",
+    "aliyun-rts-sdk": "2.2.7-beta.1",
+    "allsettled-polyfill": "^1.0.4",
+    "antd-mobile": "^5.27.0",
+    "antd-mobile-icons": "^0.3.0",
+    "axios": "^0.21.0",
+    "classnames": "^2.3.2",
+    "compare-versions": "^6.0.0-rc.1",
+    "dayjs": "^1.11.7",
+    "dingtalk-jsapi": "^3.0.12",
+    "fix-webm-duration": "^1.0.5",
+    "localforage": "^1.10.0",
+    "recordrtc": "^5.6.2",
+    "throttle-debounce": "^5.0.0",
+    "umi": "^4.0.33",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/ali-oss": "^6.16.7",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/recordrtc": "^5.6.10",
+    "@types/throttle-debounce": "^5.0.0",
+    "@types/uuid": "^9.0.0",
+    "prettier": "^2.8.4",
+    "typescript": "^4.1.2",
+    "yargs-parser": "^21.1.1"
+  }
+}

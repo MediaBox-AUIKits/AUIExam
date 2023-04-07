@@ -1,0 +1,102 @@
+.ended {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inner {
+  min-width: 400px;
+  padding: 24px;
+  background-color: #273038;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.title {
+  font-size: 16px;
+  line-height: 22px;
+}
+.endedText {
+  margin: 12px 0;
+  font-size: 24px;
+  line-height: 33px;
+  font-weight: bold;
+}
+.tip {
+  margin-top: 20px;
+  color: rgba(250, 250, 250, 0.45);
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.upload-block {
+  width: 352px;
+  padding: 16px 36px;
+  margin-top: 24px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  text-align: center;
+
+  :global {
+    .adm-progress-bar {
+      margin-top: 12px;
+    }
+    .adm-progress-bar-trail {
+      --track-width: 2px;
+    }
+  }
+}
+
+.upload-tip {
+  font-size: 16px;
+  line-height: 22px;
+
+  span {
+    display: inline-block;
+    vertical-align: middle;
+  }
+}
+
+.uploading {
+  color: #3ba4ff;
+
+  :global {
+    .adm-progress-bar-fill {
+      --fill-color: #3ba4ff;
+    }
+    .adm-progress-bar-text {
+      color: #3ba4ff;
+    }
+  }
+}
+
+.finish {
+  color: #13d433;
+
+  :global {
+    .adm-progress-bar-fill {
+      --fill-color: #13d433;
+    }
+    .adm-progress-bar-text {
+      color: #13d433;
+    }
+  }
+}
+
+.error {
+  color: #ff4141;
+
+  :global {
+    .adm-progress-bar-fill {
+      --fill-color: #ff4141;
+    }
+    .adm-progress-bar-text {
+      color: #ff4141;
+    }
+  }
+}
+
+.retry {
+  color: #3ba4ff;
+  margin-left: 8px;
+}

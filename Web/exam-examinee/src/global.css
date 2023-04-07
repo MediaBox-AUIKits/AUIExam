@@ -1,0 +1,20 @@
+*,
+:after,
+:before {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.adm-error-block-full-page .adm-error-block-description {
+  margin-top: 0;
+}
+
+.adm-notice-bar.adm-notice-bar-alert {
+  padding: 4px 10px;
+}
