@@ -1,0 +1,70 @@
+.container {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(5, 20%);
+  grid-template-rows: repeat(5, 20%);
+  padding: 1px;
+}
+
+.divider {
+  top: 4px;
+  height: 20px;
+  margin-left: 12px;
+  margin-right: 12px;
+  border-color: #979797;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-grow: 1;
+
+  .broadcasting-btn {
+    &:global(.ant-btn-default) {
+      background-color: #52c41a;
+      border-color: #52c41a;
+      color: #fff;
+
+      &:hover,
+      &:focus {
+        background-color: #52c41a;
+        border-color: #52c41a;
+        color: #fff;
+      }
+    }
+  }
+}
+
+.broadcast {
+  display: flex;
+  align-items: center;
+  color: #52c41a;
+
+  :global {
+    .ant-tag {
+      margin-left: 16px;
+      font-size: 14px;
+      color: #fff;
+      background-color: transparent;
+      border: none;
+    }
+    .ant-tag-close-icon {
+      font-size: 14px;
+      color: #fff;
+    }
+  }
+}
+
+.broadcast-icon {
+  font-size: 24px;
+  margin-right: 16px;
+}
+
+.connect-fail {
+  color: #ff4d4f;
+}
+
+.connect-success {
+  color: #52c41a;
+}

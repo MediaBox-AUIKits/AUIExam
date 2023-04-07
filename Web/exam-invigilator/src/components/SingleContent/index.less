@@ -1,0 +1,78 @@
+.connect-info-block {
+  position: absolute;
+  right: 65px;
+  bottom: 22px;
+  width: 260px;
+  height: 120px;
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0px 2px 12px 0px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.connect-info-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px;
+  font-size: 14px;
+  color: #aaa;
+  cursor: pointer;
+
+  &:hover {
+    color: #fff;
+  }
+}
+
+.connect-info-content {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 25px;
+  text-align: center;
+
+  svg {
+    font-size: 25px;
+    margin-right: 12px;
+    vertical-align: bottom;
+  }
+}
+
+.dir-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.21);
+  font-size: 40px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.next-btn {
+  .dir-btn;
+  right: 22px;
+}
+
+.prev-btn {
+  .dir-btn;
+  left: 22px;
+}
+
+.examinee-name {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 4px 8px;
+  background-color: #151616;
+  color: #fff;
+  font-size: 14px;
+  border-radius: 2px;
+}

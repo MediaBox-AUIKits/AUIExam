@@ -1,0 +1,13 @@
+import "antd/lib/alert/style";
+import "antd/lib/button/style";
+import "antd/lib/divider/style";
+import "antd/lib/input/style";
+import "antd/lib/message/style";
+import "antd/lib/modal/style";
+import "antd/lib/pagination/style";
+import "antd/lib/popover/style";
+import "antd/lib/spin/style";
+import "antd/lib/table/style";
+import "antd/lib/tabs/style";
+import "antd/lib/tag/style";
+import "antd/lib/tooltip/style";
