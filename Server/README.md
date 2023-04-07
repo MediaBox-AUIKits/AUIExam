@@ -20,14 +20,14 @@ go install github.com/swaggo/swag/cmd/swag@latest
         "auth_expires": 604800
     },
 ```
-![image.png](https://intranetproxy.alipay.com/skylark/lark/0/2023/png/14667/1680253998266-bdb509b8-0830-4d16-955b-491701c7e446.png#clientId=u17b6661a-ecfd-4&from=paste&height=414&id=u707178a2&name=image.png&originHeight=414&originWidth=1096&originalType=binary&ratio=1&rotation=0&showTitle=false&size=77539&status=done&style=none&taskId=u61887a82-1d40-4e22-b704-f2cc9925c7d&title=&width=1096)<br />图1，推拉流域名鉴权key
+![image.png](https://img.alicdn.com/imgextra/i1/O1CN01WRTw301HuEPoU5rAW_!!6000000000817-0-tps-1096-414.jpg)<br />图1，推拉流域名鉴权key
 ### 1.2.2、IM配置
 ```bash
 "live_im": {
         "app_id": "****" //IM的app ID，见图2
     }
 ```
-![image.png](https://intranetproxy.alipay.com/skylark/lark/0/2023/png/14667/1680254232816-8c13c0de-cb30-438b-8f87-951b84bd1465.png#clientId=u17b6661a-ecfd-4&from=paste&height=441&id=ub3fada5d&name=image.png&originHeight=1252&originWidth=1016&originalType=binary&ratio=1&rotation=0&showTitle=false&size=91551&status=done&style=none&taskId=u15b363f1-f2b2-4832-b72c-e9ffd5197ee&title=&width=358)<br />图2，IM配置的app ID
+![image.png](https://img.alicdn.com/imgextra/i3/O1CN01zlLiq91rOvVbrhPha_!!6000000005622-0-tps-1016-1252.jpg)<br />图2，IM配置的app ID
 ### 1.2.3、openapi配置
 ```bash
     "openapi": {
@@ -39,7 +39,7 @@ go install github.com/swaggo/swag/cmd/swag@latest
         "sts_token": ""
     },
 ```
-![image.png](https://intranetproxy.alipay.com/skylark/lark/0/2023/png/14667/1680254982829-2922833c-fe2c-4185-b821-08cc7aa93588.png#clientId=u17b6661a-ecfd-4&from=paste&height=302&id=ueff4ba97&name=image.png&originHeight=302&originWidth=2129&originalType=binary&ratio=1&rotation=0&showTitle=false&size=316402&status=done&style=none&taskId=u14a8bd7a-a2d6-451a-b7ec-d18a3b4a3b0&title=&width=2129)<br />图3，配置AK SK
+![image.png](https://img.alicdn.com/imgextra/i3/O1CN011gm2l11FnF8kPnei8_!!6000000000531-0-tps-2129-302.jpg)<br />图3，配置AK SK
 
 # 二、编译运行
 
@@ -126,7 +126,7 @@ swag init -g pkg/handler/*.go
 }
 ```
 <br />**addRoom 时序图**
-![](https://intranetproxy.alipay.com/skylark/lark/__puml/c11b4fa0a71a5d8bbd5e5789b913bada.svg#lake_card_v2=eyJ0eXBlIjoicHVtbCIsImNvZGUiOiJAc3RhcnR1bWxcblxuYXV0b251bWJlclxuXG5hY3RvciBcIueUqOaIt1wiIGFzIFVzZXJcbnBhcnRpY2lwYW50IFwi5rWP6KeI5ZmoXCIgYXMgQnJvd3NlclxucGFydGljaXBhbnQgXCLmnI3liqHnq69cIiBhcyBTZXJ2ZXIgI29yYW5nZVxucGFydGljaXBhbnQgXCLmlbDmja7lupNcIiBhcyBEYXRhYmFzZSAjMzRkZmRmXG5wYXJ0aWNpcGFudCBcIklN5pyN5YqhXCIgYXMgSU0gI2FhYjQ0NFxuXG5hY3RpdmF0ZSBVc2VyXG5cblVzZXIgLT4gQnJvd3Nlcjog6L6T5YWl5ZCN56ew77yM5Yib5bu66ICD5Zy6XG5hY3RpdmF0ZSBCcm93c2VyXG5cbkJyb3dzZXIgLT4gU2VydmVyOiDosIPnlKggL2V4YW0vYWRkUm9vbVxubm90ZSByaWdodCBvZiBCcm93c2VyOiDkvKDlhaXlj4LmlbAgbmFtZVxuYWN0aXZhdGUgU2VydmVyXG5cblNlcnZlciAtPiBEYXRhYmFzZTog5b6A6ICD6K-V6KGo5Lit5paw5bu65LiA5p2h6ICD6K-V6K6w5b2VXG5hY3RpdmF0ZSBEYXRhYmFzZVxuRGF0YWJhc2UgLT4gU2VydmVyOiDov5Tlm57ogIPor5Xkv6Hmga9cbmRlYWN0aXZhdGUgRGF0YWJhc2VcblxuU2VydmVyIC0-IElNOiDliJvlu7rmtojmga_nu4RcbmFjdGl2YXRlIElNXG5JTSAtPiBTZXJ2ZXI6IOi_lOWbniBpbUdyb3VwSWRcbmRlYWN0aXZhdGUgSU1cblxuXG5TZXJ2ZXIgLT4gRGF0YWJhc2U6IOW-gOiAg-WcuuihqOS4reaWsOW7uuS4gOadoeiAg-WcuuiusOW9lVxuYWN0aXZhdGUgRGF0YWJhc2Vcbm5vdGUgcmlnaHQgb2YgU2VydmVyOiDkvb_nlKjogIPlnLrkv6Hmga_kuK3nmoQgZXhhbUlkIOWSjCBpbUdyb3VwSWRcblxuRGF0YWJhc2UgLT4gU2VydmVyOiDov5Tlm57ogIPlnLrkv6Hmga9cbmRlYWN0aXZhdGUgRGF0YWJhc2VcblxuU2VydmVyIC0-IEJyb3dzZXI6IOi_lOWbnuWIm-W7uue7k-aenFxuZGVhY3RpdmF0ZSBTZXJ2ZXJcblxuQnJvd3NlciAtLT4gVXNlcjog5riy5p-T57uT5p6c5qih5Z2XXG5cbkBlbmR1bWwiLCJ1cmwiOiJodHRwczovL2ludHJhbmV0cHJveHkuYWxpcGF5LmNvbS9za3lsYXJrL2xhcmsvX19wdW1sL2MxMWI0ZmEwYTcxYTVkOGJiZDVlNTc4OWI5MTNiYWRhLnN2ZyIsImlkIjoicmJ2clIiLCJtYXJnaW4iOnsidG9wIjp0cnVlLCJib3R0b20iOnRydWV9LCJjYXJkIjoiZGlhZ3JhbSJ9)
+![](https://img.alicdn.com/imgextra/i2/O1CN011DSsVo1Fkx9jrxY1L_!!6000000000526-55-tps-670-543.svg)
 
 ## 获取考场信息
 **Path:** /exam/roomInfo<br />**Method:** GET
