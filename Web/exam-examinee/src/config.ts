@@ -9,7 +9,7 @@ export interface IConfig {
     projectName: string;
     logstore: string;
   };
-  localRecoder: {
+  localRecorder: {
     enable: boolean;
   };
   rongCloudIm: {
@@ -30,7 +30,7 @@ const config: IConfig = {
     projectName: "", // sls 的工程名称
     logstore: "", // sls 的 logstore
   },
-  localRecoder: {
+  localRecorder: {
     enable: true, // 是否开启本地录制
   },
   rongCloudIm: {

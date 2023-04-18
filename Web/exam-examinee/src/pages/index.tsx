@@ -152,7 +152,7 @@ function ExamPage() {
       // 初始化定时音频
       radioTimer.init(examInfoRes.radioInfo);
       // 初始化本地录制
-      if (CONFIG.localRecoder.enable) {
+      if (CONFIG.localRecorder.enable) {
         recorder
           .init({
             examId: examInfoRes.id,

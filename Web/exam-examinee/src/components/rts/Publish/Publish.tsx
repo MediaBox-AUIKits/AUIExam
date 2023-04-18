@@ -261,7 +261,7 @@ export default function Publish(props: IProps) {
       return;
     }
     // 运行本地录制才调用
-    if (CONFIG.localRecoder.enable) {
+    if (CONFIG.localRecorder.enable) {
       recorder.start(stream);
     }
   };

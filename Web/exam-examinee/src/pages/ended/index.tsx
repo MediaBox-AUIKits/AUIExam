@@ -46,7 +46,7 @@ function EndedPage() {
   useEffect(() => {
     checkInitStatus().then((bool) => {
       setInited(true);
-      if (bool && CONFIG.localRecoder.enable) {
+      if (bool && CONFIG.localRecorder.enable) {
         // 若开启了本地录制，需要检查是否有未上传的本地文件
         getCacheKeysLength().then((len) => {
           if (len) {
@@ -109,7 +109,7 @@ function EndedPage() {
       });
 
       // 初始化本地录制
-      if (CONFIG.localRecoder.enable) {
+      if (CONFIG.localRecorder.enable) {
         recorder
           .init({
             examId: roomInfoRes.id,
