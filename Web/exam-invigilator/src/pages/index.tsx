@@ -1,7 +1,7 @@
 import GridContent from "@/components/GridContent";
 import SingleContent from "@/components/SingleContent";
 import { ExamContext } from "@/context/exam";
-import { UserRoleEnum } from "@/types";
+import { UserRoleEnum, RoomStatusEnum } from "@/types";
 import { getParamFromSearch } from "@/utils/common";
 import { MockRoomId, MockTeacherId } from "@/utils/LocalMock";
 import { EBizType, reporter } from "@/utils/Reporter";
@@ -19,6 +19,13 @@ export default function HomePage() {
   const [roomId, setRoomId] = useState<string>("");
 
   useEffect(() => {
+    if (!window.isSecureContext) {
+      Modal.info({
+        content: '当前环境非安全环境将无法获取媒体设备，线上环境请使用 https 协议，本地开发请使用 localhost！',
+        okText: '我知道了',
+      });
+    }
+
     initPage();
 
     return () => {
@@ -85,6 +92,12 @@ export default function HomePage() {
       });
 
       setIniting(false);
+
+      // 如果考场结束直接跳转
+      if (roomInfoRes.status === RoomStatusEnum.end) {
+        history.push("/ended");
+        return;
+      }
 
       // 巡考员不需要加入消息服务，且不能重置状态
       if (!isInspector) {

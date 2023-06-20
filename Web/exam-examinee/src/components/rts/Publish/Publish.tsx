@@ -3,7 +3,8 @@ import { getSystemType } from "@/utils/common";
 import JsApi from "@/utils/JsApi";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
 import { EPublisherStatus, RtsPublisher } from "@/core";
-import { Dialog } from "antd-mobile";
+import { Dialog, Modal } from "antd-mobile";
+import { compare } from "compare-versions";
 import React, {
   CSSProperties,
   useContext,
@@ -13,11 +14,39 @@ import React, {
   useState,
 } from "react";
 import styles from "./index.less";
-const DEVICE_MESSAGE_IOS = `1.点击下方【去设置】-打开【相机】和【麦克风】权限。`;
-const DEVICE_MESSAGE_ANDROID = `1.点击下方【去设置】-权限管理-【摄像头】和【麦克风】权限设为：使用时允许。`;
 
 const SYS_TYPE = getSystemType();
 const RETRY_TIMEOUT = 60 * 1000;
+
+// 钉钉版本大于 7.0.30 可以直接打通权限
+const checkUWS = () => {
+  let pass = true;
+  const ua = navigator.userAgent.toLowerCase();
+
+  if (SYS_TYPE !== "Android") return pass;
+
+  if (!ua.includes("dingtalk")) return pass;
+
+  // Dingtalk UWS/249
+  // Mozilla/5.0 (Linux; U; Android 13; zh-CN; KB2000 Build/RKQ1.211119.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/69.0.3497.100 UWS/3.22.1.249 Mobile Safari/537.36 AliApp(DingTalk/7.0.20) com.alibaba.android.rimet/29094991 Channel/36180121811227 language/zh-CN abi/64 UT4Aplus/0.2.25 colorScheme/light
+
+  // Dingtalk/7.0.30 UWS/255 打通权限后的第一个全量版本
+  // Mozilla/5.0 (Linux; U; Android 13; zh-CN; KB2000 Build/RKQ1.211119.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/69.0.3497.100 UWS/3.22.1.255 Mobile Safari/537.36 AliApp(DingTalk/7.0.30) com.alibaba.android.rimet/29879169 Channel/36180121811227 language/zh-CN abi/64 UT4Aplus/0.2.25 colorScheme/light
+
+  if (ua.includes("uws")) {
+    const currentVersion = (ua.match(/dingtalk\/([\d\.]+)/) || [])[1];
+    if (!currentVersion) return pass;
+
+    const targetVersion = "7.0.30"; // 打通权限后的第一个版本（内核版本为 UWS/3.22.1.255）
+    if (!compare(currentVersion, targetVersion, ">=")) {
+      Modal.show({
+        content: `当前版本过低，请升级钉钉至最新版。`
+      });
+      pass = false;
+    }
+  }
+  return pass;
+};
 
 interface IProps {
   className?: string;
@@ -274,21 +303,29 @@ export default function Publish(props: IProps) {
       return;
     }
 
+    if (!checkUWS()) return;
+
     Dialog.show({
       title: "请打开摄像头/麦克风权限",
-      content: (
-        <>
-          <div>
-            {SYS_TYPE === "iOS" ? DEVICE_MESSAGE_IOS : DEVICE_MESSAGE_ANDROID}
-          </div>
-          <div>
-            <span style={{ color: "var(--adm-color-warning)" }}>
-              设置完成后请彻底关闭考试钉并重新进入。
-            </span>
-          </div>
-          <div>2.在页面的授权弹窗选择【允许】</div>
+      content: 
+      SYS_TYPE === "iOS" ?
+        (
+          <>
+            <div>1.点击下方【去设置】-打开【相机】和【麦克风】权限。</div>
+            <div>2.在页面的授权弹窗选择【允许】</div>
         </>
-      ),
+        ) :
+        (
+          <>
+            <div>1.请先点击【重新验证】再次授权。</div>
+            <div>2.或点击下方【去设置】-权限管理-【摄像头】和【麦克风】权限设为：使用时允许。</div>
+            <div>
+              <span style={{ color: "var(--adm-color-warning)" }}>
+                设置完成后请清掉应用后台并重新进入。
+              </span>
+            </div>
+          </>
+        ),
       actions: [
         [
           {

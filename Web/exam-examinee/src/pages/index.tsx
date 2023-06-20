@@ -10,7 +10,7 @@ import {
   RoomStatusEnum,
   SubscribeStatus,
 } from "@/types";
-import { checkH264, getParamFromSearch, getSystemType } from "@/utils/common";
+import { checkH264, getParamFromSearch, getSystemType, getIOSVersion } from "@/utils/common";
 import { formatMilliDuration } from "@/utils/format";
 import JsApi from "@/utils/JsApi";
 import { MockRoomId, MockCurrentUserId } from "@/utils/LocalMock";
@@ -18,7 +18,7 @@ import { reporter } from "@/utils/Reporter";
 import { EPublisherStatus } from "@/core";
 import services from "@/utils/services";
 import "allsettled-polyfill";
-import { NoticeBar } from "antd-mobile";
+import { NoticeBar, Modal } from "antd-mobile";
 import { compare } from "compare-versions";
 import { ready as ddReady } from "dingtalk-jsapi";
 import {
@@ -61,6 +61,7 @@ function ExamPage() {
 
   const debugInfoRef = useRef<Record<string, any>>();
   const playAfterCaptureRef = useRef<boolean>(false);
+  const activeAutoReloadRef = useRef<boolean>(false);
 
   const invigilator = useRef<any>();
   const timer = useRef<number>();
@@ -75,7 +76,9 @@ function ExamPage() {
 
   useEffect(() => {
     try {
+      checkSecure();
       checkUWS();
+      checkIOS();
       setScreenKeepOn();
       // enableTraceIdSender();
       handleWebviewResume();
@@ -363,10 +366,23 @@ function ExamPage() {
     liveSid.current = "";
   };
 
+  const checkSecure = () => {
+    if (!window.isSecureContext) {
+      Modal.alert({
+        content: '当前环境非安全环境将无法获取媒体设备，线上环境请使用 https 协议，本地开发请使用 localhost！',
+      });
+    }
+  };
+
   const setScreenKeepOn = () => {
     JsApi.setScreenKeepOn();
   };
 
+  /**
+   * 有两个地方检查 UWS 内核
+   * 1. 此处，进入考场后就检查，必须使用 249 及以上版本
+   * 2. 采集失败后，检查是不是打通权限的 255 及以上，方便用户自行解决权限问题
+   */
   const checkUWS = () => {
     setTimeout(() => {
       const ua = navigator.userAgent.toLowerCase();
@@ -374,8 +390,6 @@ function ExamPage() {
       if (getSystemType() !== "Android") return;
 
       if (!ua.includes("dingtalk")) return;
-
-      // 先检查钉钉版本 7.x
 
       // Aliding
       // Mozilla/5.0 (Linux; U; Android 12; zh-CN; KB2000 Build/RKQ1.211119.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/69.0.3497.100 UWS/3.22.1.233 Mobile Safari/537.36 AliApp(DingTalk/6.5.55.4) com.alibaba.android.rimet.aliding/PIS383631991338719232 Channel/exclusive_dingtalk_21001 language/zh-CN 2ndType/exclusive abi/64 UT4Aplus/0.2.25 colorScheme/light
@@ -386,26 +400,41 @@ function ExamPage() {
       // KAOSHIDING
       // Mozilla/5.0 (Linux; U; Android 12; zh-CN; KB2000 Build/RKQ1.211119.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/69.0.3497.100 UWS/3.22.1.233 Mobile Safari/537.36 AliApp(DingTalk/7.0.0.1) com.alibaba.android.rimet.ysyk/PIS396356995210580992 Channel/exclusive_dingtalk_216475793 language/zh-CN 2ndType/exclusive abi/32 UT4Aplus/0.2.25 colorScheme/light
 
-      // DingTalk/6.5.55.4 DingTalk/7.0.0.11
-      const dingtalkVersion = (ua.match(/DingTalk\/([\d\.]+)/i) || [])[1];
-      const minDingtalkVersion = "7.0.0.0";
-
-      if (compare(dingtalkVersion, minDingtalkVersion, "<")) {
-        history.push("/ddupgrade"); // 提示升级钉钉版本
-        return;
-      }
-
       if (ua.includes("uws")) {
         const currentVersion = (ua.match(/uws\/([\d\.]+)/) || [])[1];
         if (!currentVersion) return;
 
-        const targetVersion = "3.22.1.249"; // 7.0 之后正式修复的内核
-        if (!compare(currentVersion, targetVersion, ">=") /* 7.0正式版内核 */) {
-          history.push("/upgrade");
+        const targetVersion = "3.22.1.249"; // 此内核修复了 crash 问题，是最低要求
+        if (!compare(currentVersion, targetVersion, ">=")) {
+          Modal.show({
+            content: `当前版本过低，请升级钉钉至最新版。`
+          });
         }
       }
     }, 1500);
   };
+
+  const checkIOS = () => {
+    setTimeout(() => {
+      if (getSystemType() !== "iOS") return;
+      const vw = /(iPhone|iPod|iPad)(?!.*Safari)/ig.test(navigator.userAgent);
+      // Mozilla/5.0 (iPhone; CPU iPhone OS 16_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/112.0.5615.70 Mobile/15E148 Safari/604.1
+      // Mozilla/5.0 (iPhone; CPU iPhone OS 16_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) EdgiOS/112.0.1722.44 Version/16.0 Mobile/15E148 Safari/604.1
+      const chromeEdge = /CriOS|EdgiOS/ig.test(navigator.userAgent); // chrome edge 上也有 Safari 标识，单独识别
+      const isVW = vw || chromeEdge;
+      if (!isVW) return;
+
+      const iOSVersion = getIOSVersion();
+      const currentVersion = `${iOSVersion[0]}.${iOSVersion[1]}.${iOSVersion[2]}`;
+      const targetVersion = "14.3.0";
+
+      if (!compare(currentVersion, targetVersion, '>=')) {
+        Modal.show({
+          content: `当前 iOS 版本(${currentVersion})过低，需要 14.3 及以上版本`
+        })
+      }
+    }, 1500)
+  }
 
   const handleWebviewResume = () => {
     if (navigator.userAgent.indexOf("DingTalk") === -1) {
@@ -421,7 +450,12 @@ function ExamPage() {
           setInBackground(false);
           if (getSystemType() !== "Android") return;
           if (!window.location.hash.replace("#", "").replace("/", "")) {
-            window.location.reload();
+            // 钉钉打通权限后，系统权限弹窗会导致触发 webview pause/resume，导致自动刷新
+            if (activeAutoReloadRef.current) {
+              setTimeout(() => {
+                window.location.reload();
+              }, 500)
+            }
           }
         },
         false
@@ -484,6 +518,7 @@ function ExamPage() {
               publishUrl={userInfo.rtcPushUrl}
               controls={false}
               onCreateStream={() => {
+                activeAutoReloadRef.current = true;
                 if (playAfterCaptureRef.current) {
                   doPlayBroacast();
                 }

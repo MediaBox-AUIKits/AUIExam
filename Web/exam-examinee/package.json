@@ -1,6 +1,6 @@
 {
   "name": "exam-examinee",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "scripts": {
     "build": "umi build",
     "dev": "umi dev",

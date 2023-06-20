@@ -138,7 +138,7 @@ interface ICommonParams {
    * 前端代码版本
    * front version
    */
-  fv: string;
+  av: string;
   /**
    * 业务类型
    */
@@ -150,7 +150,7 @@ interface ICommonParams {
   /**
    * 系统版本
    */
-  osv: string;
+  ov: string;
   /**
    * 浏览器类型
    */
@@ -171,6 +171,10 @@ interface ICommonParams {
    * 页面不刷新就不会变
    */
   tid: string;
+  /**
+   * uuid
+   */
+  uuid: string;
   /**
    * 采集时间
    */
@@ -247,15 +251,16 @@ export class Reporter {
     return {
       APIVersion: "0.6.0",
       rv: "1.0.0",
-      fv: ASSETS_VERSION,
+      av: ASSETS_VERSION,
       biz: EBizType.Invigilator,
       os: SystemUtil.platform,
-      osv: SystemUtil.systemVersion,
+      ov: SystemUtil.systemVersion,
       bt: BrowserUtil.browserName,
       bv: BrowserUtil.browserVersion,
       host: window.location.origin,
       pu: window.location.href,
       tid: createGuid(32),
+      uuid: this.getUuid(),
       ua: (navigator && navigator.userAgent) || "",
       examid: "",
       userid: getParamFromSearch("userId") || "",
@@ -263,6 +268,16 @@ export class Reporter {
       roomid: getParamFromSearch("roomId") || "",
       roomname: "",
     };
+  }
+
+  private getUuid() {
+    const STORE_KEY = window.btoa ?
+     window.btoa(CONFIG.reporter.projectName)
+     : `__${CONFIG.reporter.projectName}__UUID__`;
+
+    const uuid = localStorage.getItem(STORE_KEY) || createGuid(32);
+    localStorage.setItem(STORE_KEY, uuid);
+    return uuid;
   }
 
   /**

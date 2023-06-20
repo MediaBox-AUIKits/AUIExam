@@ -20,7 +20,7 @@
 SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable 设为 true，同时填写 projectName 和 logstore。如何获取 projectName 和 logstore，请参考 [SLS 文档](https://help.aliyun.com/document_detail/54604.html) 。
 注意：使用 SLS 日志，将会产生对应的费用
 
-#### 2. localRecorder
+#### 2. localRecoder
 
 为是否开启本地录制功能。该功能为当推流失败（如网络异常）时将会把本地音视频内容录制储存在浏览器中，并择机上传至你配置的 oss bucket 下。
 
