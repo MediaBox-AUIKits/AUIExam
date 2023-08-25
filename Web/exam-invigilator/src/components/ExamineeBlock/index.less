@@ -40,6 +40,28 @@
   object-fit: contain;
 }
 
+.toggle-monitor {
+  visibility: hidden;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  height: 32px;
+  width: 116px;
+  background-color: rgba(4, 4, 4, 0.5);
+  border-radius: 2px;
+  font-weight: 400;
+  font-size: 12px;
+  color: #FFFFFF;
+  line-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.examinee:hover > .toggle-monitor {
+  visibility: visible;
+}
+
 .connect-tip {
   position: absolute;
   left: 0;

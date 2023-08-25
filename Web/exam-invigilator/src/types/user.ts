@@ -22,6 +22,10 @@ export interface IUser {
   rtcPushUrl: string; // 推流地址
   rtcPullUrl: string; // 大流拉流地址
   rtsPullUrl: string; // 小流拉流地址
+  pcRtcPushUrl: string; // pc推流地址
+  pcRtcPullUrl: string; // pc大流拉流地址
+  pcRtsPullUrl: string; // pc小流拉流地址
+  isMainMonitor: boolean; // 是否当前显示主机位
   muted: boolean;
   interactiveStatus?: UserInteractiveStatus; // 考生通过IM通知老师的状态
 }

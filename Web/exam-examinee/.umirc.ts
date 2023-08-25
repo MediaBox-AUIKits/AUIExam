@@ -27,4 +27,27 @@ export default {
   targets: {
     chrome: 69 // 安卓钉钉 webview 版本
   },
+  routes: [
+    {
+      name: 'mobile端考试页',
+      path: '/',
+      component: '@/pages',
+    },
+    {
+      name: 'pc端考试页',
+      path: '/pc',
+      component: '@/pages/pc',
+    },
+    {
+      name: 'pc端设备检测页',
+      path: '/pc/deviceTest',
+      component: '@/pages/pc/deviceTest',
+    },
+    {
+      name: '考试结束页',
+      path: '/ended',
+      component: '@/pages/ended',
+    },
+  ],
+  plugins: ['@umijs/plugins/dist/antd'],
 };

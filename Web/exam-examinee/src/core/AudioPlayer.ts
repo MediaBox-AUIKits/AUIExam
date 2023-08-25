@@ -1,3 +1,4 @@
+import { AudioContext, GainNode, AudioBufferSourceNode, MediaStreamAudioSourceNode } from "standardized-audio-context";
 import { AudioPlayerEvents } from "@/core";
 import { reporter } from "@/utils/Reporter";
 import axios, { AxiosInstance } from "axios";
@@ -14,8 +15,8 @@ class AudioPlayer extends Emitter {
   static VOLUME = 8;
 
   private _context?: AudioContext;
-  private _gainNode?: GainNode;
-  private _sourceNode?: AudioBufferSourceNode | MediaStreamAudioSourceNode;
+  private _gainNode?: GainNode<AudioContext>;
+  private _sourceNode?: AudioBufferSourceNode<AudioContext> | MediaStreamAudioSourceNode<AudioContext>;
   private _request?: AxiosInstance;
 
   constructor() {
@@ -155,7 +156,6 @@ class AudioPlayer extends Emitter {
   private initContext() {
     if (this._context) return;
 
-    window.AudioContext = window.AudioContext || window.webkitAudioContext;
     const context = new AudioContext();
     const gainNode = context.createGain();
     gainNode.gain.value = AudioPlayer.VOLUME;

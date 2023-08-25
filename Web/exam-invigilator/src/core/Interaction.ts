@@ -429,7 +429,7 @@ class Interaction extends Emitter {
     send(options);
   }
 
-  callSingle(userId: string, sid: string): Promise<any> {
+  callSingle(userId: string, sid: string, enableAudioMix?: boolean): Promise<any> {
     reporter.callSingle(userId, sid);
     this.clearTimerByType(InteractionTypes.StartCalling);
     this.clearTimerByType(InteractionTypes.EndCalling);
@@ -437,7 +437,7 @@ class Interaction extends Emitter {
       const options = {
         groupId: this.joinedGroupId,
         type: InteractionTypes.StartCalling,
-        data: JSON.stringify({ sid }),
+        data: JSON.stringify({ sid, enableAudioMix }),
         receiverIdList: [userId],
       };
       this.sendMessage(sid, resolve, reject, options);

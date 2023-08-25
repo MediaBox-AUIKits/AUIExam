@@ -1,6 +1,8 @@
 import type { PlayEvent } from "aliyun-rts-sdk/dist/core/event/playevent";
 import { ERtsEndType, ERtsExceptionType, reporter } from "../utils/Reporter";
+import SdpUtil from "../utils/SdpUtil";
 import { ERtsType, IProps as IBaseProps, RtsBase } from "./rts-base";
+import AudioChannelPlayer from "./AudioChannelPlayer";
 
 /**
  * 重试超过次数对应的场景
@@ -28,6 +30,11 @@ type IProps = {
    * 0: 从未推过流，1：推流中 2：停止推流
    */
   streamPublishStatus?: number;
+
+  /**
+   * 1v1连麦场景下，只取其中一个声道，用于消除考生端推过来的监考的声音（防止监考听到自己的声音）
+   */
+  playSingleChannel?: boolean;
 } & IBaseProps;
 
 // 自动重试，timeout 也要重试，ended 也要重试；只要不收到结束的消息，就一直重试
@@ -43,6 +50,7 @@ export class RtsSubscriber extends RtsBase {
   private _renderEl?: HTMLVideoElement;
   private _props?: IProps;
   private _streamPublishStatus?: number;
+  private _audioChannelPlayer?: AudioChannelPlayer;
 
   constructor(props: IProps) {
     super({
@@ -62,7 +70,7 @@ export class RtsSubscriber extends RtsBase {
     pullUrl: string,
     renderEl: HTMLVideoElement,
     _resolve?: any,
-    _reject?: any
+    _reject?: any,
   ) {
     console.log("开始拉流：", pullUrl);
 
@@ -77,10 +85,28 @@ export class RtsSubscriber extends RtsBase {
       if (!this._rtsClient) return reject("no rtsClient");
 
       this._rtsClient
-        .subscribe(pullUrl, { mediaTimeout: 8000 })
+        .subscribe(pullUrl, {
+          mediaTimeout: 8000,
+          offerSdpHook: (sdp) => {
+            if (this._props?.playSingleChannel) {
+              const sdpUtil = new SdpUtil(sdp);
+              sdpUtil.addStereo();
+              return sdpUtil.sdp;
+            }
+            return sdp;
+          }
+        })
         .then((remoteStream) => {
           // mediaElement是媒体标签audio或video
-          remoteStream.play(renderEl);
+          remoteStream.play(renderEl);          
+
+          if (this._props?.playSingleChannel) {
+            renderEl.muted = true;
+            this.initAudioChannelPlayer();
+            // @ts-ignore
+            this._audioChannelPlayer.load(remoteStream.mediastream);
+          }
+
           this._retryCount = 0;
           resolve("");
         })
@@ -113,6 +139,11 @@ export class RtsSubscriber extends RtsBase {
   public unSubscribe() {
     this.clearRetryTimer();
     this._rtsClient?.unsubscribe();
+
+    if (this._audioChannelPlayer) {
+      this._audioChannelPlayer.dispose();
+      this._audioChannelPlayer = undefined;
+    }
   }
 
   public dispose() {
@@ -125,6 +156,13 @@ export class RtsSubscriber extends RtsBase {
     this._pullUrl = undefined;
     this._renderEl = undefined;
     this._props = undefined;
+  }
+
+  private initAudioChannelPlayer() {
+    if (this._audioChannelPlayer) {
+      this._audioChannelPlayer.dispose();
+    }
+    this._audioChannelPlayer = new AudioChannelPlayer();
   }
 
   private clearRetryTimer() {

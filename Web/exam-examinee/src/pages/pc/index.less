@@ -1,0 +1,150 @@
+@header-height: 58px;
+
+.page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  color: white;
+  background-color: #000;
+}
+
+.header {
+  flex-shrink: 0;
+  width: 100%;
+  height: @header-height;
+  background-color: #2D2D2D;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  font-size: 14px;
+  color: #FFFFFF;
+  position: relative;
+
+  .title {
+    margin-left: 34px;
+  }
+  
+  .duration {
+    margin: 0 auto;
+  }
+  
+  .username {
+    position: absolute;
+    right: 48px;
+  }
+}
+
+.content {
+  position: relative;
+  height: calc(100% - @header-height);
+  flex-grow: 1;
+  display: flex;
+  
+  .left-sec {
+    width: 302px;
+    background-color: rgb(28, 28, 28);
+
+    .left-publish {
+      position: relative;
+
+      .previewer {
+        width: 100%;
+        height: 168.8px;
+        text-align: center;
+        line-height: 1.5;
+        position: relative;
+        object-fit: contain;
+      }
+    }
+
+    .left-subscribe-video-sec {
+      position: relative;
+      height: 168.8px;
+
+      .left-subscribe-video {
+        margin-top: 3px;
+        position: relative;
+  
+        .video {
+          width: 100%;
+          height: 168.8px;
+          text-align: center;
+          line-height: 1.5;
+          position: relative;
+          object-fit: contain;
+        }
+      }
+  
+      .subscribe-video-fail {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        height: 196px;
+        width: 300px;
+        bottom: -27.2px;
+        background-color: #F4F4F7;
+        font-weight: 400;
+        font-size: 12px;
+        text-align: center;
+        line-height: 20px;
+        color: #333333;
+        padding: 0 36px;
+  
+        .subscribe-video-fail-qrcode {
+          left: 50%;
+          transform: translateX(-50%);
+        }
+
+        :global {
+          .ant-qrcode {
+            width: 90px;
+            height: 90px;
+          }
+        }
+
+        .pull-retry {
+          align-self: center;
+          display: flex;
+          align-items: center;
+          margin-top: 6px;
+          font-weight: 400;
+          font-size: 12px;
+          color: #1597FF;
+          line-height: 20px;
+
+          .pull-retry-icon {
+            margin-right: 6px;
+          }
+        }
+      }
+    }
+  }
+
+  .right-sec {
+    flex: 1;
+    background-color: #fff;
+    color: black;
+    font-size: 30px;
+    text-align: center;
+    padding-top: 200px;
+  }
+}
+
+.left-video-info {
+  position: absolute;
+  bottom: -1px;
+  font-weight: 400;
+  font-size: 14px;
+  color: #FFFFFF;
+  line-height: 22px;
+  opacity: 0.7;
+  background-color: #000000;
+  height: 38px;
+  width: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

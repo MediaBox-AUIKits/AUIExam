@@ -10,6 +10,12 @@ interface IExamState {
   cacheUploading: boolean;
   // 是否已成功加入im聊天组
   groupJoined: boolean;
+  deviceInfo?: DeviceInfo;
+}
+
+interface DeviceInfo {
+  audio: string,
+  video: string,
 }
 
 interface IExamReducerAction {
@@ -66,6 +72,14 @@ export function examReducer(
       };
     case "reset":
       return { ...defaultState };
+    case "updateDeviceInfo":
+      if (!action.payload) {
+        return state;
+      }
+      return {
+        ...state,
+        deviceInfo: action.payload as DeviceInfo,
+      };
     default:
       throw new Error();
   }

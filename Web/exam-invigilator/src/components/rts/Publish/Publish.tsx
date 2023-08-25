@@ -61,6 +61,9 @@ export default function Publish(props: IProps) {
       onUdpFailed: () => {
         onUdpFailed && onUdpFailed();
       },
+      onTrackEnded: () => {
+        startPublish(_publisher);
+      }
     });
     setPublisher(_publisher);
 
@@ -87,16 +90,16 @@ export default function Publish(props: IProps) {
     }
   }, [publishUrl]);
 
-  const startPublish = async () => {
+  const startPublish = async (paramPublisher?: RtsPublisher) => {
     if (!videoRef.current) return;
-    console.log("start push");
+    const thePublisher = paramPublisher || publisher;
 
     setActivePublishUrl(publishUrl);
 
     let publishOk = true;
 
     try {
-      await publisher?.createStream(videoRef.current, { video: false });
+      await thePublisher?.createStream(videoRef.current, { video: false });
     } catch (error: any) {
       console.log("提示用户给予摄像头麦克风权限", error);
       if (error) {
@@ -108,7 +111,7 @@ export default function Publish(props: IProps) {
     if (!publishOk) return;
 
     try {
-      await publisher?.publish(publishUrl);
+      await thePublisher?.publish(publishUrl);
     } catch (error) {
       console.log("信令失败或其他兼容错误", error);
     }

@@ -15,6 +15,10 @@ export enum ERetryType {
 
 type IProps = {
   /**
+   * 获取到远端订阅流
+   */
+  onRemoteStream?: (remoteStream: any) => any;
+  /**
    * 自动重试的时候触发
    */
   onRetry: () => any;
@@ -23,12 +27,18 @@ type IProps = {
    * 重试已超过次数，不再重试
    */
   onRetryReachLimit: (type: ERetryType) => any;
+
+  /**
+   * 流地址的推流状态，用于埋点区分异常
+   * 0: 从未推过流，1：推流中 2：停止推流
+   */
+  streamPublishStatus?: number;
 } & IBaseProps;
 
 // 自动重试，timeout 也要重试，ended 也要重试；只要不收到结束的消息，就一直重试
 export class RtsSubscriber extends RtsBase {
   static MAX_RETRY = 3;
-  static MAX_TIMEOUT_RETRY = 3;
+  static MAX_TIMEOUT_RETRY = 6; // 多试几次，适用于监考端拔出耳麦自动切换到系统麦克风的场景
   static RETRY_INTERVAL = 5 * 1000;
 
   private _retryCount = 0; // 因信令失败引起的重试
@@ -37,6 +47,7 @@ export class RtsSubscriber extends RtsBase {
   private _pullUrl?: string;
   private _renderEl?: HTMLVideoElement | AudioPlayer;
   private _props?: IProps;
+  private _streamPublishStatus?: number;
 
   constructor(props: IProps) {
     super({
@@ -44,7 +55,12 @@ export class RtsSubscriber extends RtsBase {
       type: ERtsType.Subscribe,
     });
     this._props = props;
+    this._streamPublishStatus = props.streamPublishStatus;
     this.bindEvents();
+  }
+
+  public setStreamPublishStatus(status: number) {
+    this._streamPublishStatus = status;
   }
 
   public subscribe(
@@ -68,6 +84,7 @@ export class RtsSubscriber extends RtsBase {
       this._rtsClient
         .subscribe(pullUrl)
         .then((remoteStream) => {
+          this._props?.onRemoteStream && this._props?.onRemoteStream(remoteStream);
           // mediaElement是媒体标签audio或video
           if (renderEl instanceof AudioPlayer) {
             renderEl.load({
@@ -98,6 +115,7 @@ export class RtsSubscriber extends RtsBase {
               errorCode: ERtsExceptionType.RetryReachLimit,
               retryCount: RtsSubscriber.MAX_RETRY,
               traceId: this._traceId,
+              streamPublishStatus: this._streamPublishStatus,
             });
             // 订阅失败
             reject(err);

@@ -20,9 +20,13 @@
 SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable 设为 true，同时填写 projectName 和 logstore。如何获取 projectName 和 logstore，请参考 [SLS 文档](https://help.aliyun.com/document_detail/54604.html) 。
 注意：使用 SLS 日志，将会产生对应的费用
 
-#### 2. localRecoder
+#### 3. localRecoder
 
 为是否开启本地录制功能。该功能为当推流失败（如网络异常）时将会把本地音视频内容录制储存在浏览器中，并择机上传至你配置的 oss bucket 下。
+
+#### 4. pagePath
+
+当前页面的域名+路径，目前用于主机位页面（src->pages->pc）本地开发调试时设置进入考生移动端二维码的url，当是 localhost、127.0.0.1 时将替换为该值，其他情况使用当前的 origin + pathname
 
 ### 服务端 API 列表及说明
 

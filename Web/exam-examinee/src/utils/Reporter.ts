@@ -690,6 +690,7 @@ export class Reporter {
     errorCode: ERtsExceptionType;
     retryCount?: number;
     traceId?: string;
+    streamPublishStatus?: number;
   }) {
     this.report({
       msgid: EMsgid.RTS_SUB_EXCEPTION,

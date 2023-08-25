@@ -43,4 +43,17 @@ public class ExamUserInfoDto {
      */
     private String rtsPullUrl;
 
+    /**
+     *  PC端推流地址
+     */
+    private String pcRtcPushUrl;
+
+    /**
+     *  PC端大流地址
+     */
+    private String pcRtcPullUrl;
+    /**
+     *  PC端小流地址（转码低清晰度的流）
+     */
+    private String pcRtsPullUrl;
 }

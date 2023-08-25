@@ -155,6 +155,11 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
         PushLiveInfo pushLiveInfo = videoCloudService.getPushLiveInfo(streamName);
         PullLiveInfo pullLiveInfo = videoCloudService.getPullLiveInfo(streamName);
 
+        String streamNameOfPc = roomInfoEntity.getExamId() + "-" + roomInfoEntity.getId() + "-" + userGetRequestDto.getUserId() + "_pc";
+
+        PushLiveInfo pushLiveInfoOfPc = videoCloudService.getPushLiveInfo(streamNameOfPc);
+        PullLiveInfo pullLiveInfoOfPc = videoCloudService.getPullLiveInfo(streamNameOfPc);
+
         return ExamUserInfoDto.builder()
                 .id(userGetRequestDto.getUserId())
                 .name(userName)
@@ -162,6 +167,9 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
                 .rtcPushUrl(pushLiveInfo.getRtsUrl())
                 .rtcPullUrl(pullLiveInfo.getRtsUrl())
                 .rtsPullUrl(pullLiveInfo.getRtsUrl())
+                .pcRtcPushUrl(pushLiveInfoOfPc.getRtsUrl())
+                .pcRtcPullUrl(pullLiveInfoOfPc.getRtsUrl())
+                .pcRtsPullUrl(pullLiveInfoOfPc.getRtsUrl())
                 .build();
     }
 

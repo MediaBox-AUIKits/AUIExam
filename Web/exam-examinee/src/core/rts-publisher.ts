@@ -1,6 +1,7 @@
 import { AliRTS } from "aliyun-rts-sdk";
-import { LocalStream } from "aliyun-rts-sdk/dist/core/interface";
+import { LocalStream } from "aliyun-rts-sdk/dist/core/model/stream/localstream";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
+import SdpUtil from "@/utils/SdpUtil";
 import {
   EConnectStatus,
   ERtsType,
@@ -76,7 +77,7 @@ type IProps = {
   /**
    * 创建本地流成功
    */
-  onCreateStream?: () => any;
+  onCreateStream?: (localStream: LocalStream) => any;
 
   /**
    * 最大重试次数
@@ -141,7 +142,7 @@ export class RtsPublisher extends RtsBase {
       })
         .then((localStream) => {
           console.log("created stream: ", localStream);
-          this._props.onCreateStream && this._props.onCreateStream();
+          this._props.onCreateStream && this._props.onCreateStream(localStream);
 
           // @ts-ignore-next-line
           if (localStream.hasVideo) {
@@ -229,7 +230,13 @@ export class RtsPublisher extends RtsBase {
       }
 
       this._rtsClient
-        .publish(pushUrl, this._localStream)
+        .publish(pushUrl, this._localStream, {
+          offerSdpHook: (sdp) => {
+            const sdpUtil = new SdpUtil(sdp);
+            sdpUtil.addStereo();
+            return sdpUtil.sdp;
+          }
+        })
         .then(() => {
           // 推流成功
           console.log("推流成功, ", pushUrl);
@@ -268,6 +275,33 @@ export class RtsPublisher extends RtsBase {
           reject("");
         });
     });
+  }
+
+  public replaceAudioTrack(audioTrack: MediaStreamTrack) {
+    if (!this._localStream) return;
+    // @ts-ignore
+    const pc = this._rtsClient.publisher.peerconnection.pc as RTCPeerConnection;
+    const audioSender = pc.getSenders().find(sender => sender.track?.kind === 'audio');
+    if (audioSender) {
+      audioSender.replaceTrack(audioTrack);
+    } else {
+      console.warn('No audioSender founded.');
+    }
+  }
+
+  public supportReplaceTrack() {
+    try {
+      // @ts-ignore
+      const pc = this._rtsClient.publisher.peerconnection.pc as RTCPeerConnection;
+      const sender = pc.getSenders()[0];
+      if (sender) {
+        return !!sender.replaceTrack;
+      }
+      return false;
+    } catch (error) {
+      console.warn('check supportReplaceTrack', error);
+      return false;
+    }
   }
 
   public unPublish() {

@@ -3,6 +3,7 @@ import { AudioPlayer } from "@/core";
 import { getParamFromSearch } from "@/utils/common";
 import { useContext, useReducer, useEffect } from "react";
 import { Outlet } from "umi";
+import { StyleProvider, legacyLogicalPropertiesTransformer } from '@ant-design/cssinjs';
 import styles from "./index.less";
 
 export default function Layout() {
@@ -18,18 +19,20 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className={styles.navs}>
-      <ExamContext.Provider
-        value={{
-          state,
-          interaction,
-          radioTimer,
-          recorder,
-          dispatch,
-        }}
-      >
-        <Outlet />
-      </ExamContext.Provider>
-    </div>
+    <StyleProvider hashPriority="high" transformers={[legacyLogicalPropertiesTransformer]}>
+      <div className={styles.navs}>
+        <ExamContext.Provider
+          value={{
+            state,
+            interaction,
+            radioTimer,
+            recorder,
+            dispatch,
+          }}
+        >
+          <Outlet />
+        </ExamContext.Provider>
+      </div>
+    </StyleProvider>
   );
 }

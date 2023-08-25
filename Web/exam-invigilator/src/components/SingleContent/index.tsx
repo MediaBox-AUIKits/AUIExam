@@ -7,11 +7,12 @@ import {
 import { ExamContext } from "@/context/exam";
 import { InteractionEvents } from "@/core";
 import {
+  IUser,
   SubscribeStatusEnum,
   UserPublishStatus,
 } from "@/types";
 import { reporter } from "@/utils/Reporter";
-import { Button, message } from "antd";
+import { Button, Dropdown, Space, Modal, message } from "antd";
 import { Fragment, useContext, useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import Placeholder from "../ExamineeBlock/Placeholder";
@@ -24,7 +25,11 @@ const ConnectStatusMap: any = {
   connecting: "发起连麦...",
   connected: "连麦成功！",
   failed: "连麦异常",
+  break: "切换画面导致连麦已中断！",
 };
+
+// 兼容模式
+const COMPAT_MODE = '1';
 
 interface IProps {
   mainClassName: string;
@@ -44,6 +49,7 @@ function PersonContent(props: IProps) {
   );
   const [streamPublishStatus, setStreamPublishStatus] =
     useState<UserPublishStatus>(); // 订阅的流地址当前的推流状态
+  const [enableAudioMix, setEnableAudioMix] = useState(true);
 
   const userIndex = useMemo(() => {
     if (!activeUser) {
@@ -61,10 +67,12 @@ function PersonContent(props: IProps) {
   }, [connecting, userIndex]);
 
   useEffect(() => {
-    setSubscribeUrl(activeUser ? activeUser.rtcPullUrl : "");
+    setSubscribeUrl(activeUser ? 
+      (activeUser.isMainMonitor ? activeUser.pcRtcPullUrl : activeUser.rtcPullUrl) : ""
+    );
     setSubscribeStatus(SubscribeStatusEnum.init);
     setStreamPublishStatus(activeUser?.publishStatus);
-  }, [activeUser]);
+  }, [activeUser, activeUser?.isMainMonitor]);
 
   useEffect(() => {
     const handleStreamStop = (data: any) => {
@@ -92,7 +100,7 @@ function PersonContent(props: IProps) {
   const toggleConnecting = (bool?: boolean) => {
     if (activeUser) {
       if (bool === false || connecting) {
-        interaction.hangUpSingle(activeUser.id);
+        interaction.hangUpSingle(genInteractionUserId(activeUser));
       }
     }
     setConnecting(!connecting);
@@ -100,11 +108,15 @@ function PersonContent(props: IProps) {
     setConnectStatus("connecting");
   };
 
+  const genInteractionUserId = (user: IUser) => {
+    return user.isMainMonitor ? 'pc_' + user.id : user.id;
+  }
+
   const startCall = () => {
     if (activeUser) {
       const sid = uuidv4();
       interaction
-        .callSingle(activeUser.id, sid)
+        .callSingle(genInteractionUserId(activeUser), sid, enableAudioMix)
         .then((res) => {
           const bool = !res || !res.length;
           reporter.callSingleResult(bool, sid);
@@ -158,10 +170,30 @@ function PersonContent(props: IProps) {
 
   const startPull = () => {
     if (activeUser) {
-      setSubscribeUrl(activeUser.rtsPullUrl);
+      setSubscribeUrl(activeUser.isMainMonitor ? activeUser.pcRtsPullUrl : activeUser.rtsPullUrl);
       setSubscribeStatus(SubscribeStatusEnum.init);
     }
   };
+
+  const toggleVideo = () => {
+    // 若当前在连麦中，要先取消连麦
+    if (connecting) {
+      toggleConnecting();
+      setConnectStatus("break");
+      setConnectInfoVisible(true);
+    }
+    const userInfo = {
+      ...activeUser,
+      isMainMonitor: !(activeUser as IUser)?.isMainMonitor,
+    };
+    if (userInfo) {
+      dispatch({
+        type: "setActiveUser",
+        payload: userInfo,
+      });
+      dispatch({ type: "updateUserListItem", payload: userInfo });
+    }
+  }
 
   return (
     <Fragment>
@@ -206,6 +238,8 @@ function PersonContent(props: IProps) {
                 setSubscribeStatus(SubscribeStatusEnum.canplay);
               }
             }}
+            // 大屏的时候直接使用 AudioContext，扩展右声道为左右声道。（TODO: 验证非连麦情况下的监听质量）
+            playSingleChannel
           />
         ) : null}
 
@@ -283,17 +317,44 @@ function PersonContent(props: IProps) {
         className={footerClassName}
         style={{ justifyContent: "flex-end" }}
       >
+        <Button size="small" onClick={toggleVideo}>
+          切换{activeUser?.isMainMonitor ? '副' : '主'}监控画面
+        </Button>
         <Button size="small" onClick={gotoGrid}>
           返回25宫格
         </Button>
-        <Button
-          size="small"
-          type="primary"
-          disabled={!groupJoined}
-          onClick={() => toggleConnecting()}
-        >
-          {connecting ? "结束连麦" : "连麦"}
-        </Button>
+        <Space wrap>
+          <Dropdown.Button
+            className={styles["connect-btn-dropdown"]}
+            size="small"
+            type="primary"
+            disabled={!groupJoined}
+            menu={{
+              items: [
+                // 可以选择不进行考生端音频混流，当做生产环境出现兼容问题的安全出口，优先保证连麦稳定性
+                { key: COMPAT_MODE, label: '兼容模式连麦', style: { fontSize: '12px', height: '24px' }, disabled: connecting },
+              ],
+              onClick: (data) => {
+                if (data.key === COMPAT_MODE) {
+                  Modal.confirm({
+                    title: '确认使用兼容模式吗？',
+                    content: '仅当普通连麦遇到问题时才使用此模式，这会导致连麦内容无法完全被记录',
+                    onOk: () => {
+                      setEnableAudioMix(false);
+                      toggleConnecting();
+                    },
+                  });
+                }
+              }
+            }}
+            onClick={() => {
+              setEnableAudioMix(true);
+              toggleConnecting();
+            }}
+          >{connecting ? "结束连麦" : "连麦"}</Dropdown.Button>
+        </Space>
+
+
       </footer>
     </Fragment>
   );

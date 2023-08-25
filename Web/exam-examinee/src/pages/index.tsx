@@ -33,6 +33,7 @@ import {
 import { throttle } from "throttle-debounce";
 import { history } from "umi";
 import styles from "./index.less";
+import type { RemoteStream } from "aliyun-rts-sdk/dist/core/interface";
 
 type ConnectType = "" | "single" | "broadcast" | "init_broadcast";
 
@@ -58,6 +59,8 @@ function ExamPage() {
   const [inBackground, setInBackground] = useState(false);
   const [publishVideoElement, setPublishVideoElement] =
     useState<HTMLVideoElement>();
+  const [remoteStream, setRemoteStream] = useState<RemoteStream>();
+  const [enableAudioMix, setEnableAudioMix] = useState<boolean>(true); // 是否开启1v1通话混流，将监考和考生的声音通过混在一起
 
   const debugInfoRef = useRef<Record<string, any>>();
   const playAfterCaptureRef = useRef<boolean>(false);
@@ -121,7 +124,7 @@ function ExamPage() {
       const examInfoRes: any = await services.getExamInfo(roomInfoRes.examId);
       // 获取个人信息
       const userInfoRes: any = await services.getUserInfo(userId, roomId);
-      // 获取考生列表
+      // 获取监考端列表
       const teacherRes: any = await services.getUserInfo(
         roomInfoRes.createTeacher,
         roomId
@@ -268,11 +271,13 @@ function ExamPage() {
   };
 
   const listenInteractionEvent = useCallback(() => {
+    // 监考呼叫，开始通话
     interaction.on(
       InteractionEvents.StartCalling,
       throttle(
         500,
         (eventData: any) => {
+          setEnableAudioMix(Boolean(eventData.enableAudioMix));
           if (eventData.sid === callSid.current) {
             return;
           }
@@ -298,6 +303,8 @@ function ExamPage() {
           setSubscribeStatus(SubscribeStatus.disconnect);
           // 回复
           interaction.answerCallDisconnected();
+          // 清空 remoteStream，停止音频混流，直推麦克风
+          setRemoteStream(undefined);
         },
         { noLeading: true }
       )
@@ -334,6 +341,7 @@ function ExamPage() {
           setSubscribeStatus(SubscribeStatus.disconnect);
           interaction.feedbackStopBroadcastLive();
           playAfterCaptureRef.current = false;
+          setRemoteStream(undefined);
         },
         { noLeading: true }
       )
@@ -352,6 +360,7 @@ function ExamPage() {
           liveSid.current = "";
           setEnableSubscribe(false);
           setSubscribeStatus(SubscribeStatus.disconnect);
+          setRemoteStream(undefined);
         },
         { noLeading: true }
       )
@@ -517,6 +526,7 @@ function ExamPage() {
               className={styles.previewer}
               publishUrl={userInfo.rtcPushUrl}
               controls={false}
+              remoteStream={remoteStream}
               onCreateStream={() => {
                 activeAutoReloadRef.current = true;
                 if (playAfterCaptureRef.current) {
@@ -608,6 +618,17 @@ function ExamPage() {
           onUdpFailed={() => {
             // exceptionNotice();
             handleSubscribeFail();
+          }}
+          onRemoteStream={(remoteStream) => {
+            if (connectType === 'single' && enableAudioMix) {
+
+              // iOS 14 在同时有两个 ac（混音 + 播放）的时候播放会产生噪音，所以不进行音频混流，优先保证通话音量 https://bugs.webkit.org/show_bug.cgi?id=218762
+              const iOSVersion = getIOSVersion();
+              if (iOSVersion[0] === 14) return;
+
+              // 1v1 通话才进行音频混流
+              setRemoteStream(remoteStream);
+            }
           }}
         />
       )}

@@ -1,6 +1,7 @@
 {
   "name": "exam-invigilator",
-  "version": "1.0.2",
+  "version": "1.0.5",
+  "private": true,
   "scripts": {
     "build": "umi build",
     "dev": "umi dev",
@@ -13,10 +14,11 @@
     "@aliyun-sls/web-track-browser": "^0.0.3",
     "@rongcloud/engine": "^5.7.0",
     "@rongcloud/imlib-next": "^5.7.0",
-    "aliyun-rts-sdk": "^2.2.5",
+    "aliyun-rts-sdk": "^2.4.2",
     "antd": "^4.24.0",
     "axios": "^1.2.0",
     "dayjs": "^1.11.7",
+    "standardized-audio-context": "^25.3.46",
     "throttle-debounce": "^5.0.0",
     "umi": "^4.0.33",
     "uuid": "^9.0.0"

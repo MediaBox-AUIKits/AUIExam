@@ -87,7 +87,7 @@ function GridContent(props: IProps) {
   }, [pageNum]);
 
   const examineeIds = useMemo(() => {
-    return userList.map((item) => item.id);
+    return userList.map((item) => item.isMainMonitor ? 'pc_'+item.id : item.id);
   }, [userList]);
 
   const wrapStyle = useMemo(
@@ -97,7 +97,11 @@ function GridContent(props: IProps) {
 
   useEffect(() => {
     const handleConnectFeedback = (senderId: string) => {
-      connectSuccessIdSet.add(senderId);
+      let _senderId = senderId;
+      if (senderId.indexOf('pc_') === 0) {
+        _senderId = senderId.slice(3);
+      }
+      connectSuccessIdSet.add(_senderId);
       // 节流
       if (!connectUpdateTimer.current) {
         connectUpdateTimer.current ===
@@ -355,6 +359,22 @@ function GridContent(props: IProps) {
     return ConnectTipMap.loading;
   };
 
+  const showMainMonitor = () => {
+    const list = userList.slice(0).map((item) => ({...item, isMainMonitor: true}))
+    dispatch({
+      type: "updateUserList",
+      payload: list,
+    });
+  }
+
+  const showViceMonitor = () => {
+    const list = userList.slice(0).map((item) => ({...item, isMainMonitor: false}))
+    dispatch({
+      type: "updateUserList",
+      payload: list,
+    });
+  }
+
   return (
     <Fragment>
       <main className={mainClassName} style={wrapStyle}>
@@ -370,6 +390,8 @@ function GridContent(props: IProps) {
             );
           })}
         </div>
+        
+        {/* 系统广播 */}
         <SystemBroadcast
           show={showSystemBroadcast}
           onCancel={toggleShowBroadcast}
@@ -385,6 +407,12 @@ function GridContent(props: IProps) {
         />
 
         <div className={styles.actions}>
+          <Button size="small" onClick={showMainMonitor}>
+            主监控画面
+          </Button>
+          <Button size="small" onClick={showViceMonitor}>
+            副监控画面
+          </Button>
           <Button size="small" onClick={muteAll}>
             全员静音
           </Button>
@@ -436,9 +464,12 @@ function GridContent(props: IProps) {
         </div>
       </footer>
 
+      {/* 口播 */}
       {broadcasting ? (
         <Publish
-          publishUrl={selfInfo ? selfInfo.rtcPushUrl : ""}
+          publishUrl={selfInfo ? (
+            selfInfo.isMainMonitor ? selfInfo.pcRtcPushUrl : selfInfo.rtcPushUrl) : ""
+          }
           onDeviceFailed={() => {
             message.error(
               "因无法启动麦克风自动结束口播，请检查设备或浏览器中的权限"

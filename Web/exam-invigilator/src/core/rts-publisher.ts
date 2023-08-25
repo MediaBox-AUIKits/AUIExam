@@ -68,6 +68,11 @@ type IProps = {
   onRetryReachLimit: () => any;
 
   /**
+   * track 断开，如麦克风、摄像头被拔出（常见于耳机麦克风一体的设备被拔出）
+   */
+  onTrackEnded: () => any;
+
+  /**
    * 最大重试次数
    */
   maxRetry?: number;
@@ -154,6 +159,14 @@ export class RtsPublisher extends RtsBase {
               return sdp;
             };
           }
+
+          localStream.on('audioTrackEnded', () => {
+            this._props?.onTrackEnded();
+          });
+
+          localStream.on('videoTrackEnded', () => {
+            this._props?.onTrackEnded();
+          });
 
           this._localStream = localStream;
           // 预览推流内容，mediaElement是媒体标签audio或video

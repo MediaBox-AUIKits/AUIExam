@@ -1,0 +1,71 @@
+.sec {
+  height: 531px;
+  width: 534px;
+  background-color: #FFFFFF;
+  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.21);
+  border-radius: 4px;
+  margin: 0 auto;
+  position: relative;
+
+  .header {
+    padding: 12px 0 0 24px;
+    border-bottom: 1px solid #E6E7EC;
+    height: 47px;
+    font-weight: 500;
+    font-size: 14px;
+    color: #3A3D48;
+    line-height: 22px;
+  }
+
+  .main {
+    padding: 0 24px;
+
+    .yellow-tip {
+      margin-top: 12px;
+    }
+
+    .step {
+      margin-top: 16px;
+    }
+
+    :global {
+      .ant-steps-icon {
+        top: 3px !important;
+      }
+    }
+  }
+
+  :global {
+    .ant-steps-item-finish {
+      svg {
+        use {
+          fill: #1597FF;
+        }
+
+        circle {
+          stroke: #1597FF;
+        }
+
+        path {
+          fill: #1597FF;
+        }
+      }
+    }
+
+    .ant-steps-item-process {
+      svg {
+        g {
+          fill: #1597FF;
+        }
+
+        path {
+          fill: #FFFFFF;
+        }
+
+        circle {
+          stroke: #1597FF;
+        }
+      }
+    }
+  }
+}

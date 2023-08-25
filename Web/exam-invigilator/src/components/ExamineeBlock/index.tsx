@@ -104,9 +104,14 @@ function ExamineeBlock(props: ExamineeBlockProps) {
 
   const startPull = () => {
     clearRetryTimer();
-    updateSubscribeUrl(info.rtsPullUrl);
+    const pullUrl = info.isMainMonitor ? info.pcRtsPullUrl : info.rtsPullUrl;
+    updateSubscribeUrl(pullUrl);
     setSubscribeStatus(SubscribeStatusEnum.init);
   };
+
+  useEffect(() => {
+    startPull();
+  }, [info.isMainMonitor])
 
   const stopPull = () => {
     // 重置订阅url，开启定时 30S 后重试
@@ -132,6 +137,14 @@ function ExamineeBlock(props: ExamineeBlockProps) {
       setSubscribeStatus(SubscribeStatusEnum.canplay);
     }
   };
+
+  const toggleMonitor = () => {
+    const userInfo = {
+      ...info,
+      isMainMonitor: !info.isMainMonitor,
+    };
+    dispatch({ type: "updateUserListItem", payload: userInfo });
+  }
 
   return (
     <div className={styles.examinee} onDoubleClick={() => onShow(info)}>
@@ -164,6 +177,10 @@ function ExamineeBlock(props: ExamineeBlockProps) {
           }}
         />
       ) : null}
+
+      <div className={styles["toggle-monitor"]} onClick={toggleMonitor}>
+        切换{info.isMainMonitor ? '副' : '主'}监控画面
+      </div>
 
       {connectTip ? (
         <div className={styles["connect-tip"]}>{connectTip}</div>

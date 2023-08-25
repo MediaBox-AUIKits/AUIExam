@@ -1,0 +1,141 @@
+.step-content {
+  .device-list-sec {
+    margin-top: 2px;
+    margin: 2px 0 16px;
+  }
+
+  .preview-video-sec {
+    .preview-video-loading {
+      position: absolute;
+      bottom: 127px;
+      height: 212px;
+      width: 450px;
+      background-color: #F4F4F7;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-video {
+      height: 212px;
+      width: 422px;
+      object-fit: cover;
+    }
+  }
+
+  .preview-mic-sec {
+    position: relative;
+
+    .preview-mic-sec-content {
+      margin-top: 10px;
+      display: flex;
+
+      .preview-mic-sec-volume-bar {
+        display: flex;
+        align-items: center;
+        margin-left: 14px;
+
+        .preview-mic-sec-volume-bar-item {
+          height: 12px;
+          width: 4px;
+          background-color: #E6E7EC;
+          border: 0.5px solid #B2B7C4;
+          border-radius: 3.91px;
+          margin-left: 0px;
+
+          & + .preview-mic-sec-volume-bar-item {
+            margin-left: 16px;
+          }
+        }
+      }
+    }
+  }
+
+  .preview-speaker-sec {
+    .preview-speaker-sec-content {
+      margin-top: -3px;
+      display: flex;
+      align-items: center;
+
+      .preview-speaker-sec-progress {
+        width: 387px;
+        margin-left: 8px;
+        margin-top: 4px;
+      }
+
+      .preview-speaker-sec-timer {
+        margin-left: 8px;
+        font-weight: 400;
+        font-size: 12px;
+        color: #B2B7C4;
+        line-height: 18px;
+      }
+    }
+  }
+
+  .confirm-youself {
+    margin-top: 8px;
+    .confirm-youself-title {
+      margin-bottom: 8px;
+      font-weight: 400;
+      font-size: 12px;
+      color: #3A3D48;
+      line-height: 18px;
+    }
+  }
+
+  .btn-wrap {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+
+    .btn-common {
+      height: 32px;
+      width: 104px;
+      border-radius: 2px;
+      font-weight: 400;
+      font-size: 12px;
+      line-height: 20px;
+    }
+
+    .btn-next-step {
+      margin-left: 12px;
+    }
+  }
+}
+
+.step-content-title {
+  font-weight: 500;
+  font-size: 12px;
+  color: #3A3D48;
+  line-height: 18px;
+  margin-bottom: 4px;
+}
+
+.device-list-select {
+  width: 489px;
+  border-radius: 2px;
+}
+
+.speaker-alert {
+  height: 76px;
+  width: 489px;
+  background-color: #E5F3FF;
+  display: flex;
+  padding: 8px 20px 8px 16px;
+  margin-bottom: 8px;
+
+  .speaker-alert-icon {
+    height: 14px;
+    width: 14px;
+  }
+
+  .speaker-alert-text {
+    margin-left: 8px;
+    font-weight: 400;
+    font-size: 12px;
+    color: #333333;
+    line-height: 20px;
+  }
+}

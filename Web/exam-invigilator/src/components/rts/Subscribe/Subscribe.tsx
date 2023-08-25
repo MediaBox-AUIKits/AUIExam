@@ -54,6 +54,8 @@ interface IProps {
 
   // 需要订阅的流地址的推流状态
   streamPublishStatus?: number;
+
+  playSingleChannel?: boolean;
 }
 
 export default function Subscribe(props: IProps) {
@@ -69,6 +71,7 @@ export default function Subscribe(props: IProps) {
     controls,
     autoPlay,
     streamPublishStatus,
+    playSingleChannel,
   } = props;
   const [subscriber, setSubscriber] = useState<RtsSubscriber>();
   const [activeSubscribeUrl, setActiveSubscribeUrl] = useState<string>();
@@ -87,6 +90,7 @@ export default function Subscribe(props: IProps) {
    */
   useEffect(() => {
     const _subscriber = new RtsSubscriber({
+      playSingleChannel,
       streamPublishStatus: props.streamPublishStatus,
       onRetry: () => {
         clearCanplayTimer();

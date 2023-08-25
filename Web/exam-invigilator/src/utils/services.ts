@@ -117,6 +117,7 @@ class Services {
         const list = res.map((item: any) => ({
           ...item,
           muted: true,
+          isMainMonitor: true,
         }));
         return list;
       });

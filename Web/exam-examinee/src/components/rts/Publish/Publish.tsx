@@ -2,8 +2,8 @@ import { ExamContext } from "@/context/exam";
 import { getSystemType } from "@/utils/common";
 import JsApi from "@/utils/JsApi";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
-import { EPublisherStatus, RtsPublisher } from "@/core";
-import { Dialog, Modal } from "antd-mobile";
+import { EPublisherStatus, RtsPublisher, AudioMixer } from "@/core";
+import { Dialog, Modal, Badge, Space } from "antd-mobile";
 import { compare } from "compare-versions";
 import React, {
   CSSProperties,
@@ -14,6 +14,13 @@ import React, {
   useState,
 } from "react";
 import styles from "./index.less";
+import type { LocalStream, RemoteStream } from "aliyun-rts-sdk/dist/core/interface";
+
+declare module "aliyun-rts-sdk/dist/core/interface" {
+  interface RemoteStream {
+    mediastream: MediaStream;
+  }
+}
 
 const SYS_TYPE = getSystemType();
 const RETRY_TIMEOUT = 60 * 1000;
@@ -109,6 +116,13 @@ interface IProps {
   onCreateStream?: () => any;
 
   controls?: boolean;
+
+  remoteStream?: RemoteStream;
+
+  /**
+   * 指定视频音频设备
+   */
+  deviceInfo?: {video: string | undefined, audio: string | undefined};
 }
 
 export default function Publish(props: IProps) {
@@ -125,6 +139,8 @@ export default function Publish(props: IProps) {
     onResume,
     onCreateStream,
     onStatusChange,
+    remoteStream,
+    deviceInfo,
   } = props;
   const { recorder } = useContext(ExamContext);
   const [publisher, setPublisher] = useState<RtsPublisher>();
@@ -136,18 +152,19 @@ export default function Publish(props: IProps) {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [containerHeight, setContainerHeight] = useState<number>(0);
   const [traceId, setTraceId] = useState<string>();
+  const [localStream, setLocalStream] = useState<LocalStream>();
   const videoSizeTimerRef = useRef<{ timer?: NodeJS.Timer }>({
     timer: undefined,
   });
   const retryPubTimer = useRef<number>();
   const sizeRef = useRef<React.CSSProperties>();
   const publishFailedCountRef = useRef<number>(0);
+  const audioMixerRef = useRef<AudioMixer>();
 
   const wrapStyle: CSSProperties = useMemo(() => {
     const styles: CSSProperties = {};
     if (!videoWidth || !videoHeight || !containerHeight || !containerWidth) {
       styles.display = "none";
-      console.log("Wrap Styles1", styles);
       return styles;
     }
     // 只展示 80% 画面，左右两边 10% 隐藏
@@ -164,7 +181,6 @@ export default function Publish(props: IProps) {
       styles.height = containerHeight;
       styles.width = Math.round(containerHeight * contentRatio);
     }
-    console.log("Wrap Styles", styles);
 
     return styles;
   }, [videoHeight, videoWidth, containerHeight, containerWidth]);
@@ -197,7 +213,8 @@ export default function Publish(props: IProps) {
   useEffect(() => {
     const _publisher = new RtsPublisher({
       maxRetry: Infinity,
-      onCreateStream: () => {
+      onCreateStream: (localStream) => {
+        setLocalStream(localStream);
         onCreateStream && onCreateStream();
       },
       onUnderFlow: () => {
@@ -283,6 +300,35 @@ export default function Publish(props: IProps) {
     }
   }, [publishUrl]);
 
+  // 如果传入了远端流，则和本地音频轨道混合再推出去
+  useEffect(() => {
+    if (!publisher || !localStream) return;
+
+    if (!publisher.supportReplaceTrack()) return;
+
+    // 和本地音频混流
+    if (remoteStream) {
+      if (!audioMixerRef.current) {
+        const audioMixer = new AudioMixer();
+        audioMixerRef.current = audioMixer;
+        audioMixer.mix(remoteStream.mediastream, localStream.mediaStream);
+        const mixedAudioTrack = audioMixer.audioTrack;
+        publisher.replaceAudioTrack(mixedAudioTrack);
+        // console.warn('~~~~~~~~~~~~~~~~ 开始音频混流 ~~~~~~~~~~~~~~~~');
+      }
+    } else {
+      if (audioMixerRef.current) {
+        audioMixerRef.current.dispose();
+        audioMixerRef.current = undefined;
+
+        // @ts-ignore
+        publisher.replaceAudioTrack(localStream.audioTrack);
+        // console.warn('~~~~~~~~~~~~~~~~ 结束音频混流 ~~~~~~~~~~~~~~~~');
+      }
+    }
+
+  }, [localStream, remoteStream, publisher])
+
   const startRecorder = (publisher: RtsPublisher) => {
     const stream = publisher.getMediaStream();
     if (!stream) {
@@ -357,9 +403,10 @@ export default function Publish(props: IProps) {
 
     try {
       await publisher?.createStream(videoRef.current, {
-        audio: true,
+        audio: deviceInfo?.audio ? {deviceId: deviceInfo?.audio} : true,
         video: {
           facingMode: "user",
+          ...(deviceInfo?.video ? {deviceId: deviceInfo?.video} : null)
         },
       });
     } catch (error: any) {

@@ -1,0 +1,26 @@
+@header-height: 72px;
+
+.container {
+  width: 100%;
+  height: 100%;
+  background-color: #F4F4F4;
+  overflow: auto;
+}
+
+.header {
+  width: 100%;
+  height: @header-height;
+  padding: 24px;
+
+  img {
+    height: 24px;
+  }
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: calc(100% - @header-height);
+  padding-bottom: 24px;
+}

@@ -1,4 +1,5 @@
 export interface IConfig {
+  pagePath: string;
   appServer: {
     origin: string;
     apiPrefixPath: string;
@@ -20,6 +21,7 @@ export interface IConfig {
 
 // 使用于 .umirc.ts 中，实际代码中请使用 CONFIG
 const config: IConfig = {
+  pagePath: "", //pagePath当前用于本地开发调试时 设置进入考生移动端二维码的url；可用于将localhost/127.0.0.1替换为项目地址的origin+pathname
   appServer: {
     origin: "", // 配置 APPServer 服务域名，例子: https://xxx.xxx.xxx
     apiPrefixPath: "/exam/", // 配置api接口路径前缀

@@ -1,6 +1,7 @@
 import { AudioPlayer, ERetryType, RtsSubscriber, AudioPlayerEvents } from "@/core";
 import { getSystemType } from "@/utils/common";
 import { useEffect, useRef, useState } from "react";
+import type { RemoteStream } from "aliyun-rts-sdk/dist/core/interface";
 
 interface IProps {
   className?: string;
@@ -31,6 +32,11 @@ interface IProps {
    * UDP 失败，提示用户
    */
   onUdpFailed: () => any;
+
+  /**
+   * 获取到远端订阅流
+   */
+  onRemoteStream?: (remoteStream: RemoteStream) => any;
 }
 
 const isIOS = getSystemType() === "iOS";
@@ -43,6 +49,7 @@ export default function Subscribe(props: IProps) {
     onCanplay,
     onSubscribeRetryFailed,
     onUdpFailed,
+    onRemoteStream,
   } = props;
   const [subscriber, setSubscriber] = useState<RtsSubscriber>();
   const [activeSubscribeUrl, setActiveSubscribeUrl] = useState<string>();
@@ -67,6 +74,9 @@ export default function Subscribe(props: IProps) {
       onUdpFailed: () => {
         onUdpFailed && onUdpFailed();
       },
+      onRemoteStream: (remoteStream) => {
+        onRemoteStream && onRemoteStream(remoteStream);
+      }
     });
     setSubscriber(_subscriber);
 

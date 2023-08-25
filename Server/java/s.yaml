@@ -45,7 +45,16 @@ services:
     #        - component: fc versions publish # 要运行的命令行
     props: # 组件的属性值
       region: ${vars.region} # 关于变量的使用方法，可以参考：https://www.serverless-devs.com/serverless-devs/yaml#变量赋值
-      service: ${vars.service}
+      service:
+        name: ${vars.service.name}
+        description: "Serverless Devs Live Service"
+        logConfig: auto
+        role: "acs:ram::xxxxxx:role/fclive"
+        vpcConfig:                # VPC配置, 配置后function可以访问指定VPC
+          vpcId: vpc-xxxxx             # VPC ID
+          securityGroupId: sg-xxxxx    # 安全组ID
+          vswitchIds:             # 交换机 ID 列表
+            - vsw-xxxxxx
       function:
         name: 'java_aui_exam_app_server'
         description: 'java_aui_exam_app_server Serverless Devs Web Framework Function'
