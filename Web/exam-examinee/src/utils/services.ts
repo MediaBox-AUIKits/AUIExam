@@ -47,7 +47,7 @@ class Services {
       (res) => {
         const err: any = { url: res.config.url };
         if (res.status === 200 && res.data) {
-          if (res.data.success && res.data.data) {
+          if (res.data.success) {
             return res.data.data;
           }
           err.code = res.data.errorCode;
@@ -134,6 +134,27 @@ class Services {
       userId,
     });
   }
+
+  /**
+   * 获取防作弊检测配置
+   * @param {string} examId
+   * @return {Promise}
+   */
+  public getCheatConfig(examId: string) {
+    return this.request.post("cheat/getCheatConfig", {
+      examId,
+    });
+  }
+
+  /**
+   * 上传作弊检测消息
+   */
+    public uploadDetectMessage(options: {
+      examId: string,
+      data: string
+    }) {
+      return this.request.post("cheat/addCheatRecord", options);
+    }
 }
 
 export default new Services();

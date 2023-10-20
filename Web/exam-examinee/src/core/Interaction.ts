@@ -423,12 +423,12 @@ class Interaction extends Emitter {
   }
 
   // 主动发消息给监考员
-  private sendIMMessageToInvigilator(type: InteractionTypes, sid: string) {
+  private sendIMMessageToInvigilator(type: InteractionTypes, sid: string, data?: any) {
     const receiverIdList = [this.answerUserId];
     if (this.joinedGroupId) {
       const options = {
         groupId: this.joinedGroupId,
-        data: JSON.stringify({ sid }),
+        data: JSON.stringify({ sid, data }),
         type,
         receiverIdList,
         // 默认IM服务会对内容检测，有可能误触发错误，所以统一加上跳过检测字段
@@ -553,6 +553,11 @@ class Interaction extends Emitter {
     this.clearTimerByType(InteractionTypes.PubSuccess);
     this.sendIMMessageToInvigilator(InteractionTypes.PubFail, sid);
     this.sendRCMessageToInvigilator(InteractionTypes.PubFail);
+  }
+
+  sendDetectMessage(data: any) {
+    const sid = uuidv4();
+    this.sendIMMessageToInvigilator(InteractionTypes.SendDetectMessage, sid, data);
   }
 
   private reportSendMessageError(options: any, err: any, sid?: string) {

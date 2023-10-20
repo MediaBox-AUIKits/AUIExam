@@ -25,6 +25,8 @@ import ExamineeBlock from "../ExamineeBlock";
 import Publish from "../rts/Publish";
 import SystemBroadcast from "../SystemBroadcast";
 import BroadcastStatus from "./BroadcastStatus";
+import DetectVideoModal from "../DetectVideoModal";
+import DetectList from "@/components/DetectList";
 import styles from "./index.less";
 
 interface IProps {
@@ -64,6 +66,7 @@ function GridContent(props: IProps) {
   const [broadcastAudioData, setBroadcastAudioData] = useState<IAudioFile>();
   const [connectSuccessIds, setConnectSuccessIds] = useState<string[]>([]); // 连接成功的用户id数组
   const [connectFailIds, setConnectFailIds] = useState<string[]>([]); // 连接失败的用户id数组
+  const [showDetectModal, setShowDetectModal] = useState<boolean>(false);
 
   const connectSuccessIdSet: Set<string> = useMemo(() => new Set(), []);
   const interactivePayloadSet: Set<{
@@ -378,6 +381,10 @@ function GridContent(props: IProps) {
   return (
     <Fragment>
       <main className={mainClassName} style={wrapStyle}>
+        <DetectList
+          setShowDetectModal={setShowDetectModal}
+        />
+
         <div className={styles.container}>
           {gridList.map((item) => {
             return (
@@ -396,6 +403,11 @@ function GridContent(props: IProps) {
           show={showSystemBroadcast}
           onCancel={toggleShowBroadcast}
           onAudioPlay={onAudioPlay}
+        />
+
+        <DetectVideoModal
+          showDetectModal={showDetectModal}
+          onCancel={() => setShowDetectModal(false)}
         />
       </main>
 

@@ -29,9 +29,13 @@ import { Modal, QRCode } from 'antd';
 import { throttle } from "throttle-debounce";
 import { ExamContext } from "@/context/exam";
 import { history } from "umi";
+import dayjs from "dayjs";
 import styles from "./index.less";
 
 type ConnectType = "" | "single" | "broadcast" | "init_broadcast";
+declare const AliyunDetectEngine: any;
+let cheatEngine: any;
+let detectMessages: any[] = []; // 5s内检测的作弊消息
 
 const PCExamPage: React.FC = () => {
   const [duration, setDuration] = useState(0);
@@ -61,6 +65,9 @@ const PCExamPage: React.FC = () => {
   const [publishVideoElement, setPublishVideoElement] =
     useState<HTMLVideoElement>();
   const [isPullMobileVideoSuccess, setIsPullMobileVideoSuccess] = useState(true);
+
+  const [detectResult, setDetectResult] = useState<any>();
+  const [pcDetectConfig, setPcDetectConfig] = useState<any>();
 
   const debugInfoRef = useRef<Record<string, any>>();
   const playAfterCaptureRef = useRef<boolean>(false);
@@ -98,12 +105,189 @@ const PCExamPage: React.FC = () => {
       window.clearInterval(timer.current);
       interaction.logout();
       radioTimer.destroy();
+      cheatEngine?.destroy();
     };
+  }, []);
+
+  const isOpenDetect = useMemo(() => {
+    // 用户licenseKey未配置，不开启作弊检测
+    return CONFIG.licenseConfig.licenseKey !== '';
   }, []);
 
   useEffect(() => {
     startPull();
   }, [userInfo])
+
+  useEffect(() => {
+    let timer: any = null;
+    if (roomInfo && isOpenDetect) {
+      timer = setInterval(() => {
+        let headUpDownCount = 0, headShakingCount = 0, msgSet = new Set();
+        const msgRes = detectMessages.filter(msg => {
+          if (msg.detectType == "headUpDown") {
+            headUpDownCount++
+            return headUpDownCount === 2
+          }
+          if (msg.detectType == "headShaking") {
+            headShakingCount++
+            return headShakingCount === 2
+          }
+          if (msgSet.has(msg.detectType)) {
+            return false
+          } else {
+            msgSet.add(msg.detectType)
+            return true
+          }
+        }).map(item => {
+          item.detectTime = dayjs().valueOf();
+          item.isMainMonitor = true;
+          item.userId = getParamFromSearch("userId");
+          return item
+        });
+
+        if (msgRes.length > 0) {
+          services.uploadDetectMessage({
+            examId: roomInfo?.examId,
+            data: JSON.stringify(msgRes)
+          }).then(() => {
+            //
+          }).catch((err) => {
+            console.log(err)
+          });
+    
+          interaction.sendDetectMessage(msgRes);
+        }
+        detectMessages = [];
+      }, 5000);
+    }
+    return () => {
+      timer && clearInterval(timer);
+    }
+  }, [roomInfo, isOpenDetect]);
+
+  const detectRuleList = [
+    {
+      detectType: "scenePersonExit",
+      rule: detectResult?.scenePersonExit === 1 && detectResult?.faceCount === 0,
+      message: `${userInfo?.name}疑似离开了`,
+    },
+    {
+      detectType: "manyPeople",
+      rule: detectResult?.faceCount > 1,
+      message: `${userInfo?.name}画面疑似有多个人`,
+    },
+    {
+      detectType: "actionPoseStandup",
+      rule: detectResult?.actionPoseStandup > 0.8,
+      message: `${userInfo?.name}疑似起立了`,
+    },
+    {
+      detectType: "actionHeadUpDown",
+      rule: detectResult?.actionHeadUpDown > 0.8,
+      message: `${userInfo?.name}疑似频繁点头`,
+      triggerCount: 2, // 5s两次
+    },
+    {
+      detectType: "headShaking",
+      rule: detectResult?.actionHeadLeftRight > 0.8 || detectResult?.actionHeadShaking > 0.8,
+      message: `${userInfo?.name}疑似频繁转头/摇头`,
+      triggerCount: 2, // 5s两次
+    },
+    {
+      detectType: "watch",
+      rule: detectResult?.objectDetectWatch > 0.5,
+      message: `${userInfo?.name}疑似戴手表`,
+    },
+    {
+      detectType: "earPhone",
+      rule: detectResult?.objectHeadPhone > 0.3 || detectResult?.objectEarPhone > 0.3,
+      message: `${userInfo?.name}疑似戴耳机`,
+    },
+    {
+      detectType: "cellPhone",
+      rule: detectResult?.objectDetectCellPhone > 0.3,
+      message: `${userInfo?.name}疑似打电话`,
+    },
+    {
+      detectType: "actionPersonSpeech",
+      rule: detectResult?.actionPersonSpeech > 0.8,
+      message: `${userInfo?.name}疑似现场有人说话`,
+    },
+    {
+      detectType: "actionPoseHandup",
+      rule: detectResult?.actionPoseHandup > 0.8,
+      message: `${userInfo?.name}疑似举手了`,
+    },
+  ].filter(item => {
+    if (!pcDetectConfig) return false;
+    if (item.detectType === "watch" || item.detectType === "earPhone" || item.detectType === "cellPhone") {
+      return pcDetectConfig.objectDetect;
+    }
+    return pcDetectConfig[item.detectType];
+  })
+
+  useEffect(() => {
+    if (detectResult) {
+      detectRuleList.forEach((item) => {
+        if (item.rule) {
+          detectMessages.push({
+            detectType: item.detectType,
+            extraInfo: {
+              message: item.message,
+            }
+          });
+        }
+      })
+    }
+  }, [detectResult])
+
+  const cheatDetection = async () => {
+    cheatEngine = new AliyunDetectEngine();
+    let config = {
+      fps: 5,
+      objectDetect: false, //电子设备检测
+
+      scenePersonEnter: false, //人物进入  不需要
+      scenePersonExit: false, //离开
+      scenePersonInRectRatio: false, //画面占比  不需要
+
+      actionHeadUpDown: false, //低/抬头
+      actionHeadLeftRight: false, //转头
+      actionHeadShaking: false, //摇头
+
+      actionPoseStandup: false, //起立
+      actionPoseSitting: false, //坐下  不需要
+      actionPoseHandup: false, //举手
+      actionPersonSpeech: false, //声音
+      licenseKey: CONFIG.licenseConfig.licenseKey,
+      licenseDomain: CONFIG.licenseConfig.licenseDomain,
+    };
+
+    await services.getCheatConfig(roomInfo?.examId || '').then(res => {
+      const pcDetectConfig = JSON.parse(res.data).pc;
+      setPcDetectConfig(pcDetectConfig);
+      const cloneConfig = {...pcDetectConfig};
+      delete cloneConfig.manyPeople; // sdk默认检测人数，不需要这项输入，同时要去掉多人检测结果的输出
+      if (cloneConfig.headShaking) { // 创建考场时若选择转头/摇头检测，需要开启两项sdk检测配置
+        config.actionHeadLeftRight = true;
+        config.actionHeadShaking = true;
+      }
+      delete cloneConfig.headShaking;
+      config = {
+        ...config,
+        ...cloneConfig
+      };
+    });
+
+    await cheatEngine.init(config);
+
+    const videos = document.querySelectorAll('video');
+    const video = videos[0] as HTMLVideoElement;
+    cheatEngine.startDetect(video, video?.clientWidth, video?.clientHeight);
+    cheatEngine.on('detectResult', (result: any) => {
+      setDetectResult(result);
+    });
+  }
 
   const initPage = async () => {
     const mock = getParamFromSearch("mock");
@@ -496,6 +680,7 @@ const PCExamPage: React.FC = () => {
               <Publish
                 className={styles.previewer}
                 publishUrl={userInfo.pcRtcPushUrl}
+                needSwitcher={false}
                 controls={false}
                 onCreateStream={() => {
                   activeAutoReloadRef.current = true;
@@ -504,6 +689,7 @@ const PCExamPage: React.FC = () => {
                   }
                 }}
                 onPublishOk={() => {
+                  isOpenDetect && cheatDetection();
                   console.log("推流成功");
                   setPublishStatus(PublishStatus.success);
                 }}
@@ -587,7 +773,9 @@ const PCExamPage: React.FC = () => {
             }
           </div>
         </div>
-        <div className={styles['right-sec']}>考题区域</div>
+        <div className={styles['right-sec']}>
+          <Result cheatEngine={cheatEngine}/>
+        </div>
       </main>
 
       <StatusDisplayer
@@ -629,3 +817,101 @@ const PCExamPage: React.FC = () => {
 }
 
 export default PCExamPage
+
+// 检测结果展示
+function Result({ cheatEngine }: any) {
+  const [detectResult, setDetectResult] = useState<any>();
+
+  useEffect(() => {
+    (async () => {
+      if (!cheatEngine) return;
+      cheatEngine.on('detectResult', (result: any) => {
+        setDetectResult(result);
+      });
+      return () => {
+        cheatEngine?.off('*');
+      };
+    })();
+  }, [cheatEngine]);
+
+  const detectList = [
+    'scenePersonInRectRatio',
+    'scenePersonEnter',
+    'scenePersonExit',
+    'objectDetectCellPhone',
+    'objectDetectHat',
+    'objectDetectWatch',
+    'objectHeadPhone',
+    'objectEarPhone',
+    'actionHeadUpDown',
+    'actionHeadLeftRight',
+    'actionHeadShaking',
+    'actionPoseStandup',
+    'actionPoseSitting',
+    'actionPoseHandup',
+    'actionPersonSpeech',
+  ];
+
+  const detectNameMap = {
+    // 0: '设备在左侧',
+    scenePersonInRectRatio: '画面占比',
+    // 1: '光线过暗',
+    // 2: '光线过度',
+    scenePersonEnter: '人物进入',
+    scenePersonExit: '人物离开',
+  
+    objectDetectCellPhone: '打电话',
+    objectDetectHat: '戴帽子',
+    objectDetectWatch: '戴手表',
+    objectHeadPhone: '戴头式耳机',
+    objectEarPhone: '戴入耳式耳机',
+  
+    actionHeadUpDown: '低/抬头',
+    actionHeadLeftRight: '转头',
+    actionHeadShaking: '摇头',
+    actionPoseStandup: '起立',
+    actionPoseSitting: '坐下',
+    actionPoseHandup: '举手',
+  
+    actionPersonSpeech: '人声检测',
+  };
+
+  type DetectKeys = keyof typeof detectNameMap;
+
+  const getDisplayName = (key: DetectKeys) => {
+    return detectNameMap[key] || '';
+  };
+
+  return (
+    <div className={styles['result']}>
+      <h1>检测结果实时展示</h1>
+      <div>
+        提示：
+        <ol>
+          <li>起立(需要全身在画面中，通常在侧机位使用)</li>
+          <li>坐下(需要全身在画面中，通常在侧机位使用)</li>
+        </ol>
+      </div>
+      <div className={styles['card-divider']} />
+      {detectResult && (
+        <>
+          检测人数：<kbd>{detectResult.faceCount}</kbd>
+          <ul className={styles['result-list']}>
+            {detectList.map((item: any) => {
+              return (
+                <li key={item}>
+                  {getDisplayName(item)}
+                  <div className={styles['progress']}>
+                    <div className={styles['_inner']} style={{ width: ((detectResult[item] || 0) * 100).toFixed(2) + '%' }}>
+                      <span className={styles['_text']}>{((detectResult[item] || 0) * 100).toFixed(2) + '%'}</span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}

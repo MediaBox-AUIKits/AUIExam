@@ -1,7 +1,7 @@
 /**
  * 监控是否一直没有数据（推流异常、被电话抢占、被切后台）
  */
-
+//
 interface IConfig {
   timeout?: number;
   handler?: (type: EMediaType) => void;

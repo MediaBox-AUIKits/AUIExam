@@ -123,6 +123,8 @@ interface IProps {
    * 指定视频音频设备
    */
   deviceInfo?: {video: string | undefined, audio: string | undefined};
+
+  needSwitcher?: boolean;
 }
 
 export default function Publish(props: IProps) {
@@ -141,6 +143,7 @@ export default function Publish(props: IProps) {
     onStatusChange,
     remoteStream,
     deviceInfo,
+    needSwitcher = true,
   } = props;
   const { recorder } = useContext(ExamContext);
   const [publisher, setPublisher] = useState<RtsPublisher>();
@@ -152,6 +155,8 @@ export default function Publish(props: IProps) {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [containerHeight, setContainerHeight] = useState<number>(0);
   const [traceId, setTraceId] = useState<string>();
+  const [switching, setSwitching]= useState(false);
+  const [facingMode, setFacingMode] = useState<'user'|'environment'>('user');
   const [localStream, setLocalStream] = useState<LocalStream>();
   const videoSizeTimerRef = useRef<{ timer?: NodeJS.Timer }>({
     timer: undefined,
@@ -213,8 +218,8 @@ export default function Publish(props: IProps) {
   useEffect(() => {
     const _publisher = new RtsPublisher({
       maxRetry: Infinity,
-      onCreateStream: (localStream) => {
-        setLocalStream(localStream);
+      onCreateStream: (stream) => {
+        setLocalStream(stream);
         onCreateStream && onCreateStream();
       },
       onUnderFlow: () => {
@@ -405,7 +410,7 @@ export default function Publish(props: IProps) {
       await publisher?.createStream(videoRef.current, {
         audio: deviceInfo?.audio ? {deviceId: deviceInfo?.audio} : true,
         video: {
-          facingMode: "user",
+          facingMode: facingMode,
           ...(deviceInfo?.video ? {deviceId: deviceInfo?.video} : null)
         },
       });
@@ -433,6 +438,27 @@ export default function Publish(props: IProps) {
     } catch (error) {
       console.log("信令失败或其他兼容错误", error);
     }
+  };
+
+  const switchCamera = () => {
+    if (!videoRef.current || switching) return;
+    setSwitching(true);
+    const mode = facingMode === 'user' ? 'environment' : 'user';
+    publisher?.createStream(videoRef.current, {
+      audio: deviceInfo?.audio ? {deviceId: deviceInfo?.audio} : true,
+      video: {
+        facingMode: mode,
+        ...(deviceInfo?.video ? {deviceId: deviceInfo?.video} : null)
+      },
+    }).then(() => {
+      publisher?.replaceVideoTrack();
+      publisher?.replaceAudioTrack();
+      setFacingMode(mode);
+    }).catch((error: any) => {
+      deviceTips(error);
+    }).finally(() => {
+      setSwitching(false);
+    });
   };
 
   sizeRef.current = wrapStyle;
@@ -472,6 +498,10 @@ export default function Publish(props: IProps) {
           }}
         />
       </div>
+
+      {
+        needSwitcher ? <div className={styles['switch-camera-btn']} onClick={switchCamera}>切换摄像头</div> : false
+      }
     </div>
   );
 }

@@ -28,6 +28,10 @@ SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable �
 
 当前页面的域名+路径，目前用于主机位页面（src->pages->pc）本地开发调试时设置进入考生移动端二维码的url，当是 localhost、127.0.0.1 时将替换为该值，其他情况使用当前的 origin + pathname
 
+#### 5. licenseConfig
+
+智能防作弊检测的配置项。如果希望接入智能防作弊检测，您需要申请防作弊 SDK 的 license 并填入对应的字段中，详情请参考 [官方文档](https://help.aliyun.com/document_detail/2543703.htm) 。
+
 ### 服务端 API 列表及说明
 
 请查看服务端 Appserver 文件中接口列表，并实现部署才能正常运行项目。

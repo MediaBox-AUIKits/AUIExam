@@ -20,6 +20,7 @@ import dayjs from 'dayjs';
 import type { FacingMode } from '../../../node_modules/media-device/dist/core/interface.d.ts';
 import styles from './index.less';
 import classNames from 'classnames';
+import { throttle } from "throttle-debounce";
 import { LocalStream } from 'aliyun-rts-sdk/dist/core/interface';
 import { ExamContext } from '@/context/exam';
 
@@ -171,7 +172,9 @@ const DeviceTestStepContent: React.FC<IProps> = (props: IProps) => {
   }, [deviceId]);
   
   useEffect(() => {
-    setDeviceId(deviceList[0]?.deviceId);
+    if (deviceId !== deviceList[0]?.deviceId) {
+      setDeviceId(deviceList[0]?.deviceId);
+    }
     if (current === CurrentStep.Microphone || current === CurrentStep.Speaker) {
       // 两种case不能触发deviceId的useEffect：
       // 1. 因为麦克风设备列表变化时， 第一个设备始终为deviceId: 'default'
@@ -181,9 +184,17 @@ const DeviceTestStepContent: React.FC<IProps> = (props: IProps) => {
   }, [deviceList]);
 
   useEffect(() => {
-    navigator.mediaDevices.addEventListener('devicechange', updateDeviceList);
+    navigator.mediaDevices.addEventListener('devicechange', throttle(
+      1000,
+      () => updateDeviceList(),
+      { noTrailing: true }
+    ));
     return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', updateDeviceList);
+      navigator.mediaDevices.removeEventListener('devicechange', throttle(
+        1000,
+        () => updateDeviceList(),
+        { noTrailing: true }
+      ));
     };
   }, []);
 
@@ -226,7 +237,9 @@ const DeviceTestStepContent: React.FC<IProps> = (props: IProps) => {
         localStream.on('videoTrackEnded', () => {
           onTrackEnded();
         });
-        localStream.play(videoRef.current as HTMLVideoElement);
+        setTimeout(() => {
+          localStream.play(videoRef.current as HTMLVideoElement);
+        }, 0)
       } else if (current === CurrentStep.Microphone) {
         localStream.on('audioTrackEnded', () => {
           onTrackEnded();

@@ -8,8 +8,10 @@ import com.aliyuncs.aui.dto.req.*;
 import com.aliyuncs.aui.dto.res.ExamUserInfoDto;
 import com.aliyuncs.aui.dto.res.ImTokenResponseDto;
 import com.aliyuncs.aui.dto.res.RoomInfoDto;
+import com.aliyuncs.aui.entity.CheatConfigEntity;
 import com.aliyuncs.aui.entity.ExamEntity;
 import com.aliyuncs.aui.entity.RoomInfoEntity;
+import com.aliyuncs.aui.service.CheatConfigService;
 import com.aliyuncs.aui.service.ExamService;
 import com.aliyuncs.aui.service.RoomInfoService;
 import com.aliyuncs.aui.service.VideoCloudService;
@@ -54,6 +56,9 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
 
     @Resource
     private ExamService examinationsService;
+
+    @Resource
+    private CheatConfigService cheatConfigService;
 
     private static ThreadPoolExecutor THREAD_POOL = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
             60L, TimeUnit.SECONDS,
@@ -129,6 +134,15 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
 
         RoomInfoDto roomInfoDto = new RoomInfoDto();
         BeanUtils.copyProperties(roomInfoEntity, roomInfoDto);
+
+        // 获取作弊配置信息
+        CheatConfigGetRequestDto cheatConfigGetRequest = CheatConfigGetRequestDto.builder()
+                .examId(roomGetRequestDto.getRoomId())
+                .build();
+        CheatConfigEntity cheatConfig = cheatConfigService.getCheatConfig(cheatConfigGetRequest);
+        if (cheatConfig != null) {
+            roomInfoDto.setCheatConfig(cheatConfig);
+        }
         return roomInfoDto;
     }
 

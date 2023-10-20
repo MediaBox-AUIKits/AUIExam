@@ -15,7 +15,8 @@ export default (api: IApi) => {
       if(/(iPhone|Android)/i.test(navigator.userAgent) && location.hostname.indexOf('pre-')!==-1) {
         eruda.init();
       }
-      </script>`
+      </script>`,
+      `<script src="https://g.alicdn.com/apsara-media-box/imp-cheat-detection-wasm/1.0.1/aliyun-detect-engine.js"></script>`,
     ]);
     $("#root").after([
       `<script src='https://g.alicdn.com/video-cloud-fe/aliyun-interaction-sdk/1.0.2/aliyun-interaction-sdk.web.min.js'></script>`,

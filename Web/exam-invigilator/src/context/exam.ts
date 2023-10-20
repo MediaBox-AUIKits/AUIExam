@@ -15,6 +15,10 @@ interface IExamState {
   roomInfo?: IRoom;
   userInfo?: IUser;
   userList: IUser[];
+  detectList?: any[];
+  scrollToken?: string;
+  viewExamineeId? :string;
+  viewExamineeDetectMsg? :string;
 
   // 选中看大流的用户
   activeUser?: IUser;

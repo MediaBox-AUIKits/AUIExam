@@ -140,6 +140,9 @@ class Interaction extends Emitter {
           reporter.receivePubSuccess("aliyun", { userId: senderId });
           this.emit(InteractionEvents.PubSuccess, senderId);
           break;
+        case InteractionTypes.SendDetectMessage:
+          this.emit(InteractionEvents.SendDetectMessage, data);
+          break;
         default:
           break;
       }

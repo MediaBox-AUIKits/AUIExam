@@ -49,7 +49,7 @@ class Services {
       (res) => {
         const err: any = { url: res.config.url };
         if (res.status === 200 && res.data) {
-          if (res.data.success && res.data.data) {
+          if (res.data.success) {
             return res.data.data;
           }
           err.code = res.data.errorCode;
@@ -194,6 +194,27 @@ class Services {
       audioStatus,
     });
   }
+
+  /**
+   * 获取作弊检测消息
+   */
+    public getDetectList(examId: IDType, pageSize: number, scrollToken?: string) {
+      return this.request.post("cheat/listCheatRecord", {
+        examId,
+        pageSize,
+        scrollToken,
+      });
+    }
+
+  /**
+   * 上传作弊检测消息
+   */
+    public uploadDetectMessage(options: {
+      examId: IDType,
+      data: string
+    }) {
+      return this.request.post("cheat/addCheatRecord", options);
+    }
 }
 
 export default new Services();

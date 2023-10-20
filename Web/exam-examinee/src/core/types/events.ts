@@ -18,6 +18,7 @@ export enum InteractionTypes {
   EnterRoom = 20016, // 考生进入考场，发给老师
   PubSuccess = 20017, // 考生推流成功，发给老师，区分服务端的 StreamPublish
   PubFail = 20018, // 考生推流失败，发给老师，区分服务端的 StreamStop
+  SendDetectMessage = 20019, // 考生发送作弊检测消息给监考端
 }
 
 export enum InteractionEvents {

@@ -174,6 +174,10 @@ export class RtsPublisher extends RtsBase {
             };
           }
 
+          // 将之前的 LocalStream 停用
+          if (this._localStream) {
+            this._localStream.stop();
+          }
           this._localStream = localStream;
           // 预览推流内容，mediaElement是媒体标签audio或video
           renderEl && localStream.play(renderEl);
@@ -277,15 +281,29 @@ export class RtsPublisher extends RtsBase {
     });
   }
 
-  public replaceAudioTrack(audioTrack: MediaStreamTrack) {
+  public replaceAudioTrack(audioTrack?: MediaStreamTrack) {
     if (!this._localStream) return;
+    const aTrack = audioTrack || this._localStream.audioTrack;
     // @ts-ignore
     const pc = this._rtsClient.publisher.peerconnection.pc as RTCPeerConnection;
     const audioSender = pc.getSenders().find(sender => sender.track?.kind === 'audio');
-    if (audioSender) {
-      audioSender.replaceTrack(audioTrack);
+    if (audioSender && aTrack) {
+      audioSender.replaceTrack(aTrack);
     } else {
       console.warn('No audioSender founded.');
+    }
+  }
+
+  public replaceVideoTrack(videoTrack?: MediaStreamTrack) {
+    if (!this._localStream) return;
+    const vTrack = videoTrack || this._localStream.videoTrack;
+    // @ts-ignore
+    const pc = this._rtsClient.publisher.peerconnection.pc as RTCPeerConnection;
+    const videoSender = pc.getSenders().find(sender => sender.track?.kind === 'video');
+    if (videoSender && vTrack) {
+      videoSender.replaceTrack(vTrack);
+    } else {
+      console.warn('No videoSender founded.');
     }
   }
 

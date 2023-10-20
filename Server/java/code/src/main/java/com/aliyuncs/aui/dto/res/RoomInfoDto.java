@@ -1,5 +1,6 @@
 package com.aliyuncs.aui.dto.res;
 
+import com.aliyuncs.aui.entity.CheatConfigEntity;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -53,6 +54,8 @@ public class RoomInfoDto {
      * 考场创建者id
      */
     private String createTeacher;
+
+    private CheatConfigEntity cheatConfig;
 
     @Data
     @Builder

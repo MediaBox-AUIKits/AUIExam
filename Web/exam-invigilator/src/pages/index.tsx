@@ -11,6 +11,8 @@ import { useContext, useEffect, useState } from "react";
 import { history } from "umi";
 import styles from "./index.less";
 
+let pageSize = 10;
+
 export default function HomePage() {
   const { state, interaction, radioTimer, dispatch } = useContext(ExamContext);
   const { roomInfo, activeUser, role } = state;
@@ -71,6 +73,8 @@ export default function HomePage() {
       const userInfoRes: any = await services.getUserInfo(userId, roomId);
       // 获取考生列表
       const listRes: any = await services.getUserList(roomId);
+      // 获取本场考试的检测作弊信息列表
+      const detectListRes: any = await services.getDetectList(roomInfoRes.examId, pageSize);
       // 更新定时音频
       radioTimer.init(examInfoRes.radioInfo);
       // 更新日志基础信息
@@ -88,6 +92,14 @@ export default function HomePage() {
           examInfo: examInfoRes,
           userInfo: userInfoRes,
           userList: listRes,
+          detectList: detectListRes?.cheatRecordEntitys?.map(
+            (item: any) => ({
+              ...item,
+              extraInfo: {message: JSON.parse(item.extraInfo).message},
+              isMainMonitor: JSON.parse(item.isMainMonitor)
+            })
+          ),
+          scrollToken: detectListRes?.scrollToken,
         },
       });
 
