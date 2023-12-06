@@ -15,7 +15,7 @@ export default (api: IApi) => {
       // </script>`
     ]);
     $("#root").after([
-      `<script src='https://g.alicdn.com/video-cloud-fe/aliyun-interaction-sdk/1.0.2/aliyun-interaction-sdk.web.min.js'></script>`,
+      `<script src='https://g.alicdn.com/video-cloud-fe/aliyun-interaction-sdk/1.0.3/aliyun-interaction-sdk.web.min.js'></script>`,
     ]);
     return $;
   });

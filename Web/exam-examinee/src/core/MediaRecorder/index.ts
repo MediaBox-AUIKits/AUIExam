@@ -1,45 +1,40 @@
-import { reporter } from "@/utils/Reporter";
-import OSS from "ali-oss";
 import dayjs from "dayjs";
 import ysFixWebmDuration from "fix-webm-duration";
 import localforage from "localforage";
 import { RecordRTCPromisesHandler } from "recordrtc";
-import Emitter from "./Emitter";
-import { ISTSData } from "./types";
+import Emitter from "../Emitter";
+import { ISTSData } from "../types";
+import { reporter } from "@/utils/Reporter";
+import OSSUploader from "./OSSUploader";
+import VODUploader from "./VODUploader";
 
+const DBName = "AUIExam";
+const RetryMaxNum = 2;
+const ChunkMinDuration = 2000; // 小于最小时长不要
+const ChunkMaxDuration = 5 * 60 * 1000; // 分片最大时长
+enum RecorderKeys {
+  first = "first",
+  second = "second",
+}
+// format
 const FormatMap: any = {
   mp4: "mp4",
   webm: "webm",
   "x-matroska": "mkv",
 };
 
-const RefreshSTSTokenInterval = 30 * 60 * 1000; // 30min 重新请求一次
-// 临时访问凭证已过期的错误信息
-const ExistErrorMessages = [
-  "The OSS Access Key Id you provided does not exist in our records.",
-  "The security token you provided has expired.",
-];
-
 function getDateString(datetime: number) {
   return dayjs(datetime).format("YYYY-MM-DD HH:mm:ss");
 }
 
-export interface LocalRecorderInitOptions {
+export interface MediaRecorderInitOptions {
   examId: string;
   userId: string;
   roomId: string;
   fetchSTSData: (id: string) => Promise<any>;
 }
 
-const DBName = "ArtExam";
-const ChunkMinDuration = 1000; // 小于最小时长不要
-const ChunkMaxDuration = 5 * 60 * 1000; // 分片最大时长
-enum RecorderKeys {
-  first = "first",
-  second = "second",
-}
-
-class LocalRecorder extends Emitter {
+class MediaRecorder extends Emitter {
   private recorderMap: Map<string, RecordRTCPromisesHandler> = new Map();
   private recordTimeMap: Map<string, number> = new Map();
   private currentRecorderKey: string = RecorderKeys.first;
@@ -47,12 +42,13 @@ class LocalRecorder extends Emitter {
   private stopTimer?: number; // 停止录制定时器
   private started: boolean = false;
   private forage?: LocalForage;
-  private oss?: OSS;
-  private examOptions?: LocalRecorderInitOptions;
+  private uploader?: OSSUploader | VODUploader;
+  // private oss?: OSS;
+  private examOptions?: MediaRecorderInitOptions;
   private stsData?: ISTSData;
   private mimeType: string = "video/mp4";
   // 获取 STS 数据函数
-  private fetchSTSData: (id: string) => Promise<any> = () => {
+  private fetchSTSData: (id: string, mode: string) => Promise<any> = () => {
     return Promise.reject({
       message: "not init fetchSTSData",
     });
@@ -62,7 +58,7 @@ class LocalRecorder extends Emitter {
     super();
   }
 
-  public async init(options: LocalRecorderInitOptions) {
+  public async init(options: MediaRecorderInitOptions) {
     this.examOptions = options;
     if (options && options.fetchSTSData) {
       this.fetchSTSData = options.fetchSTSData;
@@ -74,22 +70,21 @@ class LocalRecorder extends Emitter {
       storeName: `${options.examId}`, // 数据仓库的名称，如 考试id
     });
 
-    await this.getStsData();
-    await this.initOss();
+    await this.initUploader();
   }
 
   private getStsData(): Promise<any> {
     const examId = this.examOptions?.examId;
     if (!examId) {
-      reporter.getSTSError({ code: -1, msg: "no examId!" });
-      return Promise.reject({ code: -1, msg: "no examId!" });
+      reporter.getSTSError({ code: -1, message: "no examId!" });
+      return Promise.reject({ code: -1, message: "no examId!" });
     }
     return new Promise((resolve, reject) => {
       let num = 0;
       const run = async () => {
         num += 1;
         try {
-          const res = await this.fetchSTSData(examId);
+          const res = await this.fetchSTSData(examId, CONFIG.localRecorder.mode);
           this.stsData = res as any;
           reporter.getSTSSuccess();
           resolve(res);
@@ -109,33 +104,17 @@ class LocalRecorder extends Emitter {
     });
   }
 
-  private initOss() {
-    if (!this.stsData) {
-      return Promise.reject({ code: -1, msg: "no STS data!" });
-    }
+  private initUploader() {
     try {
-      this.oss = new OSS({
-        ...this.stsData,
-        timeout: 3 * 60 * 1000, // timeout 3 分钟
-        refreshSTSToken: async () => {
-          // 向您搭建的STS服务获取临时访问凭证。
-          const info = await this.getStsData();
-          return {
-            accessKeyId: info.accessKeyId,
-            accessKeySecret: info.accessKeySecret,
-            stsToken: info.stsToken,
-          };
-        },
-        // 刷新临时访问凭证的时间间隔，单位为毫秒。
-        refreshSTSTokenInterval: RefreshSTSTokenInterval,
-      });
-      return Promise.resolve();
+      const options = {
+        fetchSTSData: this.getStsData.bind(this),
+      };
+      this.uploader = CONFIG.localRecorder.mode === "VOD" ? new VODUploader(options) : new OSSUploader(options);
+      return this.uploader.init();
     } catch (error: any) {
-      console.log("oss 初始化异常！", this.stsData, error);
-      reporter.ossInitError({
-        message: error ? error.message : undefined,
-      });
-      return Promise.reject({ code: -1, msg: "oss init error!" });
+      console.log("uploader 初始化异常！", this.stsData, error);
+      reporter.ossInitError(error);
+      return Promise.reject(error);
     }
   }
 
@@ -242,23 +221,21 @@ class LocalRecorder extends Emitter {
       console.log("录制文件", dur, blob);
 
       const chunkKey = `${getDateString(startTime!)}_${getDateString(now)}`;
-      // 保存
-      await this.saveToDB(chunkKey, blob);
+      // 生成 File 对象
+      const file = this.blobToFile(chunkKey, blob);
+      // 保存至 indexDB
+      await this.saveToDB(chunkKey, file);
 
       await recorder.destroy();
       this.recordTimeMap.delete(key);
       this.recorderMap.delete(key);
 
       // 上传至服务端
-      this.uploadFile(chunkKey, blob).catch((error) => {
-        // 第一次失败时先检查下错误类型
-        this.checkUploadErrorMessage(error?.message);
-        // 如果失败就再试一次
-        this.uploadFile(chunkKey, blob).catch((err) => {
-          reporter.chunkUploadFail({
-            message: err ? err.message : undefined,
-            chunkKey,
-          });
+      this.uploadFile(chunkKey, file).catch((error) => {
+        console.log(error);
+        reporter.chunkUploadFail({
+          message: error ? error.message : undefined,
+          chunkKey,
         });
       });
     } catch (err) {
@@ -273,20 +250,7 @@ class LocalRecorder extends Emitter {
     }
   }
 
-  private checkUploadErrorMessage(message?: string) {
-    if (!this.oss) {
-      return;
-    }
-    if (message && ExistErrorMessages.includes(message)) {
-      // 若临时访问凭证已过期，那么直接修改 stsTokenFreshTime 为刷新时间前
-      // 那么就可以下次调用 oss put 上传时，oss sdk 会触发更新 stsToken
-      (this.oss as any).stsTokenFreshTime = new Date(
-        Date.now() - RefreshSTSTokenInterval - 1000
-      );
-    }
-  }
-
-  private saveToDB(chunkKey: string, file: Blob) {
+  private saveToDB(chunkKey: string, file: File) {
     if (!this.forage) {
       return Promise.reject(new Error("未初始化"));
     }
@@ -301,20 +265,30 @@ class LocalRecorder extends Emitter {
     return Promise.resolve(blob);
   }
 
-  private uploadFile(chunkKey: string, file: Blob) {
-    if (!this.oss) {
-      return Promise.reject(new Error("oss not init"));
+  /**
+   * Blob 转成 File 对象
+   * @param {string} chunkKey
+   * @param {Blob} blob
+   * @return {*}  {File}
+   */
+  private blobToFile(chunkKey: string, blob: Blob): File {
+    const marr = blob.type.match(/^video\/([a-z0-9-]+)/) || [];
+    let format = marr[1] || "";
+    format = FormatMap[format] || format;
+    const fileName = `${chunkKey}.${format}`;
+    return new File([blob], fileName, { type: blob.type });
+  }
+
+  private uploadFile(chunkKey: string, file: File) {
+    if (!this.uploader) {
+      return Promise.reject(new Error("uploader not init"));
     }
     if (!file) {
       return Promise.reject(new Error("file error"));
     }
-    const marr = file.type.match(/^video\/([a-z0-9-]+)/) || [];
-    let format = marr[1] || "";
-    format = FormatMap[format] || format;
     const streamName = `${this.examOptions?.examId}-${this.examOptions?.roomId}-${this.examOptions?.userId}`;
-    const path = `/record/local/${streamName}/${chunkKey}.${format}`;
 
-    return this.oss.put(path, file).then((res) => {
+    return this.uploader.uploadFile(streamName, file).then((res: any) => {
       console.log("上传成功", res);
       reporter.chunkUploadSuccess({ name: res.name, url: res.url });
       // 上传成功后，删除分片
@@ -344,7 +318,7 @@ class LocalRecorder extends Emitter {
     };
 
     let num = 0;
-    const upload = (blob: Blob) => {
+    const upload = (blob: File) => {
       num += 1;
       this.uploadFile(chunkKey, blob)
         .then(() => {
@@ -353,14 +327,13 @@ class LocalRecorder extends Emitter {
         })
         .catch((err) => {
           console.log("上传失败", err);
-          this.checkUploadErrorMessage(err?.message);
-          if (num > 3) {
+          if (num > RetryMaxNum) {
             reporter.chunkUploadFail({
               message: err ? err.message : undefined,
               chunkKey,
             });
             this.emit("fail", chunkKey);
-            next(); // 3次还失败就下一个
+            next(); // 多次失败就下一个
           } else {
             upload(blob);
           }
@@ -423,4 +396,4 @@ class LocalRecorder extends Emitter {
   }
 }
 
-export default LocalRecorder;
+export default MediaRecorder;

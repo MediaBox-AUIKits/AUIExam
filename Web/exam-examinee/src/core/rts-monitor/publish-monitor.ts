@@ -1,5 +1,5 @@
 import { reporter } from "@/utils/Reporter";
-import type { RtsClient } from "aliyun-rts-sdk/dist/rtsclient";
+import type { RtsClient } from "aliyun-rts-sdk";
 import { EMediaType, IMediaData, MediaObserver } from "./media-observer";
 
 interface IReportData {

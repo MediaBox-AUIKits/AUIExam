@@ -5,6 +5,7 @@ import SlsTracker from "@aliyun-sls/web-track-browser";
 import { AliRTS } from "aliyun-rts-sdk";
 import type { ErrorCode as ERtsErrorCode } from "aliyun-rts-sdk/dist/core/error/errorcode";
 import { createGuid, getParamFromSearch } from "./common";
+import { IVideoProfile } from "@/types/exam";
 
 /**
  * 业务类型
@@ -71,6 +72,11 @@ enum EMsgid {
   GET_STS_ERROR = 1257,
   GET_STS_SUCCESS = 1258,
 
+  // 防作弊检测相关
+  CHEAT_DETECTION_NEEDLESS = 1280, // 不需要检测
+  CHEAT_DETECTION_INITED = 1281,
+  CHEAT_DETECTION_ERR = 1282,
+
   // 技术类 2xx
 
   RTS_SUB_ERROR = 2001,
@@ -90,6 +96,10 @@ enum EMsgid {
   RTS_PUB_UNDERFLOW,
   RTS_PUB_RESUME,
   RTS_SDP_SUPPORT_264,
+  RTS_PAGE_STATE,
+
+  RTS_RECEIVE_VIDEO_PROFILE = 2200, // 传入的 VideoProfile 参数值
+  RTS_VALIDATED_VIDEO_PROFILE, // 校验处理后的 VideoProfile
 }
 
 /**
@@ -209,6 +219,7 @@ interface ICommonParams {
    * 事件id
    */
   msgid?: EMsgid;
+  msgname?: typeof EMsgid;
 
   /**
    * msgid 对应的参数
@@ -300,6 +311,7 @@ export class Reporter {
         ...this._commonParams,
         ...params,
         ct: new Date().getTime(),
+        msgname: EMsgid[params.msgid!],
       };
       this._track.send(reportData);
     }
@@ -527,6 +539,27 @@ export class Reporter {
     this.report({ msgid: EMsgid.GET_STS_SUCCESS });
   }
 
+  public cheactDetectionNeedless(config: any) {
+    this.report({
+      msgid: EMsgid.CHEAT_DETECTION_NEEDLESS,
+      args: config,
+    });
+  }
+
+  public cheactDetectionInited(config: any) {
+    this.report({
+      msgid: EMsgid.CHEAT_DETECTION_INITED,
+      args: config,
+    });
+  }
+
+  public cheactDetectionError(from: string, err: any) {
+    this.report({
+      msgid: EMsgid.CHEAT_DETECTION_ERR,
+      args: { from, err },
+    });
+  }
+
   public subscribeStart(params: { url: string }) {
     this.report({
       msgid: EMsgid.RTS_SUB_START,
@@ -703,6 +736,7 @@ export class Reporter {
   public publishException(params: {
     url: string;
     errorCode: ERtsExceptionType;
+    streamConfig?: any;
     retryCount?: number;
     deviceErrorCode?: number /* RTS SDK CODE */;
     traceId?: string;
@@ -736,6 +770,29 @@ export class Reporter {
         ...params,
       },
     });
+  }
+
+  public receiveVideoProfile(videoProfile?: IVideoProfile) {
+    this.report({
+      msgid: EMsgid.RTS_RECEIVE_VIDEO_PROFILE,
+      args: videoProfile,
+    });
+  }
+
+  public validatedVideoProfile(videoProfile: IVideoProfile) {
+    this.report({
+      msgid: EMsgid.RTS_VALIDATED_VIDEO_PROFILE,
+      args: videoProfile,
+    });
+  }
+  
+  public pageState(params: { state: 'resume' | 'pause'/* 被打断，后台、电话、系统弹窗等 */ }) {
+    this.report({
+      msgid: EMsgid.RTS_PAGE_STATE,
+      args: {
+        ...params
+      }
+    })
   }
 }
 

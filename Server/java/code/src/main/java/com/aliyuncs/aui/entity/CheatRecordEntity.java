@@ -32,6 +32,11 @@ public class CheatRecordEntity implements Serializable {
 	private String examId;
 
 	/**
+	 * 考场ID
+	 */
+	private String roomId;
+
+	/**
 	 * 考生id
 	 */
 	private String userId;

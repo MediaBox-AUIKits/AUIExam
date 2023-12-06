@@ -1,31 +1,37 @@
-::-webkit-scrollbar {
-  background: #252525;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: #444;
-  border-radius: 8px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: #555;
-}
+@title-height: 56px;
 
 .detect-block {
   width: 285px;
   height: 100%;
   background-color: #2D2D2D;
-  margin: 4px 4px 0 0;
+  border-width: 2px 0;
+  border-color: black;
+  border-style: solid;
   padding-left: 16px;
 
+  ::-webkit-scrollbar {
+    background: #252525;
+    width: 10px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 5px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #555;
+  }
+
   .title {
+    height: @title-height;
+    padding: 20px 0 8px 0;
     font-weight: 500;
     font-size: 18px;
-    margin: 20px 0 8px 0;
   }
 
   .sec {
-    height: 820px;
+    height: calc(100% - @title-height);
     display: flex;
     flex-direction: column;
     align-items: center;

@@ -107,3 +107,46 @@ export function checkH264(fn: any) {
       fn("error");
     });
 }
+
+/**
+ * 深克隆
+ * @template T
+ * @param {T} obj
+ * @return {T}
+ */
+export function deepClone<T>(obj: T): T {
+  if (!obj || typeof obj !== 'object') {
+    return obj;
+  }
+  if (obj instanceof RegExp) {
+    // See https://github.com/Microsoft/TypeScript/issues/10990
+    return obj as any;
+  }
+  const result: any = Array.isArray(obj) ? [] : {};
+  Object.keys(<any>obj).forEach((key: string) => {
+    if ((<any>obj)[key] && typeof (<any>obj)[key] === 'object') {
+      result[key] = deepClone((<any>obj)[key]);
+    } else {
+      result[key] = (<any>obj)[key];
+    }
+  });
+  return result;
+}
+
+/**
+ * 判断是否是合法的数字
+ * @param {number} num
+ * @return {boolean} 
+ */
+export function isValidNumber(num: number): boolean {
+  return typeof num === 'number' && !isNaN(num) && isFinite(num);
+}
+
+/**
+ * 判断是否是合法的正数
+ * @param {number} num
+ * @return {boolean} 
+ */
+export function isValidPositiveNumber(num: number): boolean {
+  return isValidNumber(num) && num > 0;
+}

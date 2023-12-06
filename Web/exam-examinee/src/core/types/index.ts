@@ -7,6 +7,7 @@ export interface ISTSData {
   bucket: string;
   region: string;
   stsToken: string;
+  expiration?: string;
 }
 
 export interface IAudioFile {

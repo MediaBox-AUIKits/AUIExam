@@ -1,7 +1,7 @@
 import { VolumeOffSvg, VolumeSvg } from "@/assets/CustomIcon";
 import { ExamContext } from "@/context/exam";
 import { InteractionEvents } from "@/core";
-import { IUser, SubscribeStatusEnum } from "@/types";
+import { IUser, SubscribeStatusEnum, UserRoleEnum } from "@/types";
 import {
   Fragment,
   useContext,
@@ -23,7 +23,7 @@ interface ExamineeBlockProps {
 function ExamineeBlock(props: ExamineeBlockProps) {
   const { info, connectTip, onShow } = props;
   const { interaction, state, dispatch } = useContext(ExamContext);
-  const { activeUser } = state;
+  const { activeUser, role } = state;
   const [subscribeUrl, setSubscribeUrl] = useState<string>("");
   const [subscribeStatus, setSubscribeStatus] = useState<string>(
     SubscribeStatusEnum.init
@@ -40,6 +40,8 @@ function ExamineeBlock(props: ExamineeBlockProps) {
     }
     return info.muted;
   }, [activeUser, info]);
+
+  const isInvigilator = useMemo(() => UserRoleEnum.invigilator === role, [role]);
 
   useEffect(() => {
     // 初始化时设置拉流地址
@@ -175,12 +177,18 @@ function ExamineeBlock(props: ExamineeBlockProps) {
               "UDP不通，提示用户：切换 WIFI/蜂窝网络，或切换设备；如果仍无法解决问题，请联系管理员。"
             );
           }}
+          // 监考员角色单声道，巡考员听混音
+          playSingleChannel={isInvigilator}
         />
       ) : null}
 
-      <div className={styles["toggle-monitor"]} onClick={toggleMonitor}>
-        切换{info.isMainMonitor ? '副' : '主'}监控画面
-      </div>
+      {
+        CONFIG.mutilMonitor.enable ? (
+          <div className={styles["toggle-monitor"]} onClick={toggleMonitor}>
+            切换{info.isMainMonitor ? '副' : '主'}监控画面
+          </div>
+        ) : null
+      }
 
       {connectTip ? (
         <div className={styles["connect-tip"]}>{connectTip}</div>

@@ -1,6 +1,14 @@
 import { ERtsEndType, ERtsExceptionType, reporter } from "../utils/Reporter";
 import { AliRTS } from "aliyun-rts-sdk";
-import { RtsClient } from "aliyun-rts-sdk/dist/rtsclient";
+import type { RtsClient } from "aliyun-rts-sdk";
+
+AliRTS.customReporter = (params: any) => {
+  params.extra = {
+    aliyunUid: CONFIG.aliyunUid,
+    scene: 'AUIExam',
+		platform: 'Web',
+  }
+};
 
 export enum EConnectStatus {
   CONNECT_STATUS_DISCONNECTED = 0,

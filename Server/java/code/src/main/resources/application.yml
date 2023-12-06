@@ -40,6 +40,14 @@ biz:
   live_mic:
     app_id: 7c61********
     app_key: c461b*********
+  ram:
+    access_key_id: LTAI5*********
+    access_key_secret: NLgHO********
+  upload:
+    role_arn: acs:ram::*******
+    region: cn-shanghai
+    bucket: *****
+    base_path: /***
 http:
   cors:
     host: "*"

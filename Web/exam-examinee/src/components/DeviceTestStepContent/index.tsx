@@ -17,7 +17,6 @@ import {
 import { AliRTS } from "aliyun-rts-sdk";
 import { history } from "umi";
 import dayjs from 'dayjs';
-import type { FacingMode } from '../../../node_modules/media-device/dist/core/interface.d.ts';
 import styles from './index.less';
 import classNames from 'classnames';
 import { throttle } from "throttle-debounce";
@@ -216,7 +215,6 @@ const DeviceTestStepContent: React.FC<IProps> = (props: IProps) => {
       } : false,
       video: current === CurrentStep.Camera ? {
         deviceId: deviceId,
-        facingMode: "user" as FacingMode,
       } : false,
       screen: !!(current === CurrentStep.Screen),
     }

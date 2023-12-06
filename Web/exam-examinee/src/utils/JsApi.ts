@@ -8,6 +8,10 @@ class JsApi {
     this.isInDingtalk = navigator.userAgent.indexOf("DingTalk") > -1;
   }
 
+  isDingtalk() {
+    return this.isInDingtalk;
+  }
+
   // 弹出确认弹窗
   showConfirm(message: string) {
     if (this.isInDingtalk) {
@@ -81,6 +85,32 @@ class JsApi {
         })
         .catch((e) => {});
     }
+  }
+
+  rotateView() {
+    if (!this.isInDingtalk) {
+      return;
+    }
+    dd.device.screen.rotateView({
+      showStatusBar : true, // 否显示statusbar
+      clockwise : true, // 是否顺时针方向
+      onSuccess : function() {
+        //
+      },
+      onFail : function(err: any) {
+        console.log('rotateView error ->', err);
+      },
+    });
+  }
+
+  resetView(onSuccess: () => void, onFail: () => void) {
+    if (!this.isInDingtalk) {
+      return;
+    }
+    dd.device.screen.resetView({
+      onSuccess,
+      onFail,
+    });
   }
 }
 

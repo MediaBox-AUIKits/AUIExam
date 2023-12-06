@@ -4,6 +4,8 @@ import { IConfig } from "@/config";
 declare global {
   interface Window {
     AliyunInteraction: any;
+    AliyunUpload: any;
+    OSS: any;
   }
 
   const CONFIG: IConfig;

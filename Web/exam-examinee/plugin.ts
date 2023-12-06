@@ -12,7 +12,7 @@ export default (api: IApi) => {
       // 如果需要在手机端调试，可以加上以下内容
       `<script src='https://player.alicdn.com/lib/eruda-3.0.0-min.js'></script>`,
       `<script>
-      if(/(iPhone|Android)/i.test(navigator.userAgent) && location.hostname.indexOf('pre-')!==-1) {
+      if(/(iPhone|Android)/i.test(navigator.userAgent) && (location.hostname.indexOf('pre-')!==-1 || location.search.indexOf('eruda=1') !== -1)) {
         eruda.init();
       }
       </script>`,

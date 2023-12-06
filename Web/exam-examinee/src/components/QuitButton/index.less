@@ -1,7 +1,11 @@
 .close {
   position: absolute;
   top: 10px;
+  top: calc(10px + constant(safe-area-inset-top)); /* 兼容 iOS < 11.2 */
+	top: calc(10px + env(safe-area-inset-top)); /* 兼容 iOS >= 11.2 */
   left: 10px;
+  left: calc(10px + constant(safe-area-inset-left)); /* 兼容 iOS < 11.2 */
+	left: calc(10px + env(safe-area-inset-left)); /* 兼容 iOS >= 11.2 */
   font-size: 14px;
   color: #fff;
   z-index: 100;

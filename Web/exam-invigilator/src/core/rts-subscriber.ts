@@ -1,4 +1,3 @@
-import type { PlayEvent } from "aliyun-rts-sdk/dist/core/event/playevent";
 import { ERtsEndType, ERtsExceptionType, reporter } from "../utils/Reporter";
 import SdpUtil from "../utils/SdpUtil";
 import { ERtsType, IProps as IBaseProps, RtsBase } from "./rts-base";
@@ -43,11 +42,7 @@ export class RtsSubscriber extends RtsBase {
   static MAX_TIMEOUT_RETRY = 3;
   static RETRY_INTERVAL = 5 * 1000;
 
-  private _retryCount = 0; // 因信令失败引起的重试
-  private _retryTimer?: NodeJS.Timer;
-  private _timeoutRetryCount = 0; // 因拉流超时引起的重试
   private _pullUrl?: string;
-  private _renderEl?: HTMLVideoElement;
   private _props?: IProps;
   private _streamPublishStatus?: number;
   private _audioChannelPlayer?: AudioChannelPlayer;
@@ -68,25 +63,19 @@ export class RtsSubscriber extends RtsBase {
 
   public subscribe(
     pullUrl: string,
-    renderEl: HTMLVideoElement,
-    _resolve?: any,
-    _reject?: any,
+    renderEl: HTMLVideoElement
   ) {
     console.log("开始拉流：", pullUrl);
 
-    this.clearRetryTimer();
-
     this._pullUrl = pullUrl;
-    this._renderEl = renderEl;
     return new Promise((resolve, reject) => {
-      resolve = _resolve || resolve;
-      reject = _reject || reject;
-
       if (!this._rtsClient) return reject("no rtsClient");
 
       this._rtsClient
         .subscribe(pullUrl, {
           mediaTimeout: 8000,
+          retryTimes: RtsSubscriber.MAX_RETRY,
+          retryInterval: RtsSubscriber.RETRY_INTERVAL,
           offerSdpHook: (sdp) => {
             if (this._props?.playSingleChannel) {
               const sdpUtil = new SdpUtil(sdp);
@@ -98,46 +87,37 @@ export class RtsSubscriber extends RtsBase {
         })
         .then((remoteStream) => {
           // mediaElement是媒体标签audio或video
-          remoteStream.play(renderEl);          
-
+          remoteStream.play(renderEl);
+          reporter.playChannelMode(this._props?.playSingleChannel ? 'single' : 'default');
           if (this._props?.playSingleChannel) {
-            renderEl.muted = true;
             this.initAudioChannelPlayer();
             // @ts-ignore
-            this._audioChannelPlayer.load(remoteStream.mediastream);
+            const stream = this._audioChannelPlayer.load(remoteStream.mediaStream);
+            const oriStream = remoteStream.mediaStream;
+            oriStream?.removeTrack(remoteStream.audioTrack!);
+            oriStream?.addTrack(stream.getAudioTracks()[0]!);
           }
 
-          this._retryCount = 0;
           resolve("");
         })
         .catch((err) => {
-          if (this._retryCount < RtsSubscriber.MAX_RETRY) {
-            this._retryCount++;
-
-            this._retryTimer = setTimeout(() => {
-              console.log(`Retrying ${this._retryCount}th time`);
-              this.subscribe(pullUrl, renderEl, resolve, reject);
-            }, RtsSubscriber.RETRY_INTERVAL);
-          } else {
-            this._retryCount = 0;
-            this._props?.onRetryReachLimit &&
-              this._props?.onRetryReachLimit(ERetryType.Signal);
-            reporter.subscribeException({
-              url: this._pullUrl || "",
-              errorCode: ERtsExceptionType.RetryReachLimit,
-              retryCount: RtsSubscriber.MAX_RETRY,
-              traceId: this._traceId,
-              streamPublishStatus: this._streamPublishStatus,
-            });
-            // 订阅失败
-            reject(err);
-          }
+          const signalError = err?.errorCode === 10205;
+          this._props?.onRetryReachLimit &&
+            this._props?.onRetryReachLimit(signalError ? ERetryType.Signal : ERetryType.Media);
+          reporter.subscribeException({
+            url: this._pullUrl || "",
+            errorCode: ERtsExceptionType.RetryReachLimit,
+            retryCount: RtsSubscriber.MAX_RETRY,
+            traceId: this._traceId,
+            streamPublishStatus: this._streamPublishStatus,
+          });
+          // 订阅失败
+          reject(err);
         });
     });
   }
 
   public unSubscribe() {
-    this.clearRetryTimer();
     this._rtsClient?.unsubscribe();
 
     if (this._audioChannelPlayer) {
@@ -148,13 +128,8 @@ export class RtsSubscriber extends RtsBase {
 
   public dispose() {
     super.dispose();
-    console.log("subscriber dispose");
-
     this.unSubscribe();
-    this._retryCount = 0;
-    this._timeoutRetryCount = 0;
     this._pullUrl = undefined;
-    this._renderEl = undefined;
     this._props = undefined;
   }
 
@@ -165,71 +140,16 @@ export class RtsSubscriber extends RtsBase {
     this._audioChannelPlayer = new AudioChannelPlayer();
   }
 
-  private clearRetryTimer() {
-    if (this._retryTimer) {
-      clearTimeout(this._retryTimer);
-      this._retryTimer = undefined;
-    }
-  }
-
-  private retry() {
-    if (this._pullUrl && this._renderEl) {
-      if (this._timeoutRetryCount < RtsSubscriber.MAX_TIMEOUT_RETRY) {
-        console.log(
-          "订阅超时，重新订阅",
-          `${this._timeoutRetryCount + 1}/ ${RtsSubscriber.MAX_TIMEOUT_RETRY}`,
-          this._pullUrl
-        );
-        this._timeoutRetryCount++;
-        this._props?.onRetry && this._props?.onRetry();
-        this.subscribe(this._pullUrl, this._renderEl);
-      } else {
-        console.log(
-          `当前已重试达到 ${RtsSubscriber.MAX_TIMEOUT_RETRY} 次，不再重试`,
-          this._pullUrl
-        );
-        this._props?.onRetryReachLimit &&
-          this._props?.onRetryReachLimit(ERetryType.Media);
-        reporter.subscribeException({
-          url: this._pullUrl || "",
-          errorCode: ERtsExceptionType.RetryReachLimit,
-          retryCount: RtsSubscriber.MAX_TIMEOUT_RETRY,
-          traceId: this._traceId,
-          streamPublishStatus: this._streamPublishStatus,
-        });
-      }
-    }
-  }
-
-  private isMediaDataResume = (mediaData: PlayEvent["data"]) => {
-    let resume = false;
-    if (mediaData.video) {
-      if (mediaData.video.bytesReceivedPerSecond > 0) {
-        resume = true;
-      }
-    } else if (mediaData.audio) {
-      if (mediaData.audio.bytesReceivedPerSecond > 0) {
-        resume = true;
-      }
-    }
-    if (resume) {
-      this._timeoutRetryCount = 0;
-    }
-  };
-
   protected bindEvents() {
     super.bindEvents();
 
     this._rtsClient.on("onPlayEvent", (data) => {
       switch (data.event) {
         case "media":
-          this.isMediaDataResume(data.data);
           break;
         case "timeout":
         case "ended":
           if (!this._isConnected) return; // 这里需要防止超时重试比 UDP 失败发生早，导致 UDP 失败无法触发
-          console.log("play event", data.event);
-          this.retry();
 
           if (data.event === "timeout") {
             reporter.subscribeEnd({
@@ -240,5 +160,11 @@ export class RtsSubscriber extends RtsBase {
           break;
       }
     });
+
+    this._rtsClient.on('reconnect', (evt) => {
+      if (evt.type !== 'sub') return;
+      console.log('rts 自动重试', evt)
+      this._props?.onRetry && this._props?.onRetry();
+    })
   }
 }

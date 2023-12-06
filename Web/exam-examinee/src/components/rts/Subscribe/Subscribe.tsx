@@ -1,7 +1,7 @@
 import { AudioPlayer, ERetryType, RtsSubscriber, AudioPlayerEvents } from "@/core";
 import { getSystemType } from "@/utils/common";
 import { useEffect, useRef, useState } from "react";
-import type { RemoteStream } from "aliyun-rts-sdk/dist/core/interface";
+import type { RemoteStream } from "aliyun-rts-sdk";
 
 interface IProps {
   className?: string;
@@ -80,6 +80,7 @@ export default function Subscribe(props: IProps) {
     });
     setSubscriber(_subscriber);
 
+    // 拉流播放安卓端依然使用 <audio>，因为钉钉内 AudioContext 无法播放 remoteStream
     if (isIOS) {
       initAudioPlayer();
     }

@@ -105,7 +105,19 @@ biz:
   # 推流状态回调的authKey
   live_callback:
       auth_key: avdsd*******
-      
+  # 获取oss上传凭证需要的子账号ak及as信息
+  # OSS 配置请查看：https://help.aliyun.com/zh/oss/developer-reference/use-temporary-access-credentials-provided-by-sts-to-access-oss
+  # VOD 配置请查看：https://help.aliyun.com/zh/vod/user-guide/use-sts-to-create-a-ram-role-and-grant-temporary-permissions
+  ram:
+    access_key_id: LTAI5*********
+    access_key_secret: NLgHO********
+  # 上传信息配置。包括需要的角色、oss地区、bucket名称及上传的目录
+  upload:
+    role_arn: acs:ram::*******
+    region: cn-shanghai
+    bucket: live***
+    # 前后端约定文件存储的基础路径为 /record ，若要修改，需要前后端一起修改
+    base_path: /record   
 # 配置允许跨域的请求域名
 http:
   cors:

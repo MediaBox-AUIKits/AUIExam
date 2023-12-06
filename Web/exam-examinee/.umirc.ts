@@ -50,4 +50,8 @@ export default {
     },
   ],
   plugins: ['@umijs/plugins/dist/antd'],
+  // 启用 https 以在移动端访问测试页面
+  // https: {
+  //   http2: false, // to avoid Chrome issue
+  // }
 };

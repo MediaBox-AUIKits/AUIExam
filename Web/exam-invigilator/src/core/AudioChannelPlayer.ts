@@ -13,13 +13,16 @@ class AudioChannelPlayer {
   public load(stream: MediaStream) {
     const sourceNode = this._context.createMediaStreamSource(stream);
     const splitterNode = this._context.createChannelSplitter(2);
+    const destNode = this._context.createMediaStreamDestination();
 
     // sourceNode -> splitterNode
     sourceNode.connect(splitterNode);
     // splitterNode -> destination
-    splitterNode.connect(this._context.destination, CHANNEL_INDEX_R);
+    splitterNode.connect(destNode, CHANNEL_INDEX_R);
 
     this.play();
+
+    return destNode.stream;
   }
 
   public dispose() {

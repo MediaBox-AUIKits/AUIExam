@@ -1,5 +1,5 @@
 import { BasicMap, IExam, IRoom, IUser } from "@/types";
-import { Interaction, LocalRecorder, RadioTimer } from "@/core";
+import { Interaction, MediaRecorder, RadioTimer } from "@/core";
 import React from "react";
 
 interface IExamState {
@@ -89,7 +89,7 @@ type ExamContextType = {
   state: IExamState;
   interaction: Interaction;
   radioTimer: RadioTimer;
-  recorder: LocalRecorder;
+  recorder: MediaRecorder;
   dispatch: React.Dispatch<IExamReducerAction>;
 };
 
@@ -101,6 +101,6 @@ export const ExamContext = React.createContext<ExamContextType>({
     } : undefined
   }),
   radioTimer: new RadioTimer(),
-  recorder: new LocalRecorder(),
+  recorder: new MediaRecorder(),
   dispatch: () => {},
 });

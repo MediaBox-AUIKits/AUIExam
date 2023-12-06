@@ -1,6 +1,7 @@
-import { AudioContext, GainNode, AudioBufferSourceNode, MediaStreamAudioSourceNode } from "standardized-audio-context";
+import { AudioContext, GainNode, AudioBufferSourceNode, MediaStreamAudioSourceNode, MediaStreamAudioDestinationNode } from "standardized-audio-context";
 import { AudioPlayerEvents } from "@/core";
 import { reporter } from "@/utils/Reporter";
+import { getSystemType } from '@/utils/common';
 import axios, { AxiosInstance } from "axios";
 import Emitter from "./Emitter";
 
@@ -11,12 +12,16 @@ interface ILoadParams {
   onLoaded?: () => any;
 }
 
+// iOS 要解决音量小的问题，所以设置一个大值
+const defaultVolume = getSystemType() === 'iOS' ? 8 : 2;
+
 class AudioPlayer extends Emitter {
-  static VOLUME = 8;
+  static VOLUME = defaultVolume;
 
   private _context?: AudioContext;
   private _gainNode?: GainNode<AudioContext>;
   private _sourceNode?: AudioBufferSourceNode<AudioContext> | MediaStreamAudioSourceNode<AudioContext>;
+  private _streamDestNode?:MediaStreamAudioDestinationNode<AudioContext>;
   private _request?: AxiosInstance;
 
   constructor() {
@@ -133,6 +138,7 @@ class AudioPlayer extends Emitter {
     this._sourceNode = undefined;
     this._context = undefined;
     this._gainNode = undefined;
+    this._streamDestNode = undefined;
   }
 
   dispose() {
@@ -160,24 +166,13 @@ class AudioPlayer extends Emitter {
     const gainNode = context.createGain();
     gainNode.gain.value = AudioPlayer.VOLUME;
     gainNode.connect(context.destination);
-    // console.log(context.state); // running
-
-    // context.addEventListener('statechange', () => {
-    //   const state = context.state;
-    //   console.log('======== statechange ========', state);
-    //   switch(state) {
-    //     case 'running':
-    //       break;
-    //     case 'suspended':
-    //       break;
-    //     case 'closed':
-    //       break;
-    //     default:
-    //   }
-    // })
 
     this._context = context;
     this._gainNode = gainNode;
+
+    // copy 一个 stream 给外面，用于音频混流，从而云端可以同时录制考生的声音+广播声音
+    this._streamDestNode = context.createMediaStreamDestination();
+    this.emit(AudioPlayerEvents.Stream, this._streamDestNode.stream);
   }
 
   private createSourceFromBuffer(buffer: AudioBuffer, originSrc: string) {
@@ -185,6 +180,10 @@ class AudioPlayer extends Emitter {
     if (!source || !this._gainNode) return;
     source.buffer = buffer;
     source.connect(this._gainNode);
+    if (this._streamDestNode) {
+      // 同步输出一路原始音量的流给 stream
+      source.connect(this._streamDestNode);
+    }
 
     source.addEventListener("ended", () => {
       console.log("audio play ended");
@@ -203,6 +202,10 @@ class AudioPlayer extends Emitter {
     const source = this._context?.createMediaStreamSource(stream);
     if (!source || !this._gainNode) return;
     source.connect(this._gainNode);
+    if (this._streamDestNode) {
+      // 同步输出一路原始音量的流给 stream
+      source.connect(this._streamDestNode);
+    }
     this.emit(AudioPlayerEvents.Playing, {});
     this._sourceNode = source;
   }

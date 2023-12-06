@@ -221,7 +221,8 @@ function GridContent(props: IProps) {
   );
 
   const showDetail = (info: IUser) => {
-    if (role !== UserRoleEnum.invigilator || broadcasting) {
+    if (broadcasting) {
+      message.warning("全员口播中，不能进入单人模块");
       return;
     }
     dispatch({
@@ -249,7 +250,17 @@ function GridContent(props: IProps) {
       // 重置
       resetConnectdata();
       updateBoardcastLiveStatus(0);
-      interaction.stopBroadcastLive(examineeIds).catch((err) => {
+      // 停止口播时需要通知两个主副机位端，以免某个端没有停止拉流
+      // 若未开启多机位则不需要
+      const ids: string[] = [];
+      userList.forEach((item) => {
+        ids.push(item.id);
+        // 多机位时增加主机位id
+        if (CONFIG.mutilMonitor.enable) {
+          ids.push(`pc_${item.id}`);
+        }
+      });
+      interaction.stopBroadcastLive(ids).catch((err) => {
         console.log("停止口播信令失败", err);
       });
       setBroadcasting(false);
@@ -378,12 +389,27 @@ function GridContent(props: IProps) {
     });
   }
 
+  const closeDetectVideoModal = () => {
+    dispatch({
+      type: "update",
+      payload: {
+        viewExamineeId: '',
+        viewExamineeDetectMsg: '',
+      },
+    });
+    setShowDetectModal(false);
+  };
+
   return (
     <Fragment>
       <main className={mainClassName} style={wrapStyle}>
-        <DetectList
-          setShowDetectModal={setShowDetectModal}
-        />
+        {
+          role === UserRoleEnum.invigilator && CONFIG.detectList.enable ? (
+            <DetectList
+              setShowDetectModal={setShowDetectModal}
+            />
+          ) : null
+        }
 
         <div className={styles.container}>
           {gridList.map((item) => {
@@ -407,7 +433,7 @@ function GridContent(props: IProps) {
 
         <DetectVideoModal
           showDetectModal={showDetectModal}
-          onCancel={() => setShowDetectModal(false)}
+          onCancel={closeDetectVideoModal}
         />
       </main>
 
@@ -419,12 +445,18 @@ function GridContent(props: IProps) {
         />
 
         <div className={styles.actions}>
-          <Button size="small" onClick={showMainMonitor}>
-            主监控画面
-          </Button>
-          <Button size="small" onClick={showViceMonitor}>
-            副监控画面
-          </Button>
+          {
+            CONFIG.mutilMonitor.enable ? (
+              <Fragment>
+                <Button size="small" onClick={showMainMonitor}>
+                  主监控画面
+                </Button>
+                <Button size="small" onClick={showViceMonitor}>
+                  副监控画面
+                </Button>
+              </Fragment>
+            ) : null
+          }
           <Button size="small" onClick={muteAll}>
             全员静音
           </Button>

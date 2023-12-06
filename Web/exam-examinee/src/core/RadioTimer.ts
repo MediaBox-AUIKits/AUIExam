@@ -1,10 +1,7 @@
-import { getSystemType } from "@/utils/common";
 import { reporter } from "@/utils/Reporter";
 import AudioPlayer from "./AudioPlayer";
 import Emitter from "./Emitter";
 import { AudioPlayerEvents, IRadioFile } from "./types";
-
-const isIOS = getSystemType() === "iOS";
 
 interface IRadioItem extends IRadioFile {
   _status: number;
@@ -17,36 +14,35 @@ enum RadioStatusEnum {
   ended = 2,
 }
 
-const LoadTimeout = 10000;
-
 class RadioTimer extends Emitter {
   private list: IRadioItem[] = [];
   private waitingList: IRadioItem[] = [];
   private playingItem?: IRadioItem;
-  private audioEl?: HTMLAudioElement | null;
   private timer?: number;
-  private loadTimer?: number; // 用于判断 10s 内是否加载成功
-  private currentSecondUrl?: string; // 储存当前音频可用的第二用地址
-
   private audioPlayer?: AudioPlayer;
 
   constructor() {
     super();
 
-    if (isIOS) {
-      this.audioPlayer = new AudioPlayer();
-      this.audioPlayer.on(AudioPlayerEvents.Ended, () => {
-        this.handleEnded();
-      });
-      this.audioPlayer.on(AudioPlayerEvents.Playing, () => {
-        this.emit("playing", this.playingItem);
-      });
-    } else {
-      this.audioEl = document.createElement("audio");
-      this.audioEl.autoplay = true;
-      this.audioEl.controls = false;
-      this.addAudioEvents();
-    }
+    /**
+     * iOS 端使用 AudioContext，原因：
+     * - 解决音量过小问题
+     * 
+     * Android 端也使用 AudioContext，原因：
+     * - 方便直接使用音量键调节音量（不需要单独调节媒体音量）
+     * - 解决偶现的音量小的问题
+     * - 钉钉容器（chrome100版本）HtmlAudioElement.captureStream() 捕获的流无法播放，导致无法实现广播声音的混流 + 云端录制
+     */
+    this.audioPlayer = new AudioPlayer();
+    this.audioPlayer.on(AudioPlayerEvents.Ended, () => {
+      this.handleEnded();
+    });
+    this.audioPlayer.on(AudioPlayerEvents.Playing, () => {
+      this.emit("playing", this.playingItem);
+    });
+    this.audioPlayer.on(AudioPlayerEvents.Stream, (stream: MediaStream) => {
+      this.emit('stream', stream);
+    })
   }
 
   // 结束、错误都执行
@@ -55,26 +51,6 @@ class RadioTimer extends Emitter {
       this.playingItem.status = RadioStatusEnum.ended;
     }
     this.emit("ended", this.playingItem);
-  }
-
-  private addAudioEvents() {
-    const el = this.audioEl;
-    if (!el) {
-      return;
-    }
-    el.addEventListener("ended", () => {
-      this.handleEnded();
-    });
-    el.addEventListener("playing", () => {
-      this.emit("playing", this.playingItem);
-      reporter.audioPlaying({ src: el.src, from: "timer" });
-      this.clearLoadTimer();
-    });
-    el.addEventListener("error", () => {
-      reporter.audioPlayFail({ src: el.src, from: "timer", event: "error" });
-      this.clearLoadTimer();
-      this.loadSecondUrl();
-    });
   }
 
   public init(list: IRadioFile[]) {
@@ -134,32 +110,39 @@ class RadioTimer extends Emitter {
     }, 5000);
   }
 
-  private clearLoadTimer() {
-    if (this.loadTimer) {
-      window.clearTimeout(this.loadTimer);
-    }
-  }
-
   private checkTime() {
+    // // FIXME:
+    // // @ts-ignore
+    // if (!window.mocktimer)  {
+    //   // @ts-ignore
+    //   window.mocktimer = 1;
+
+    //   setTimeout(() => {
+    //     const URL = 'https://ice-pub-media.myalicdn.com/vod-demo/mp3/%E8%80%83%E8%AF%95%E7%BB%93%E6%9D%9F.mp3';
+    //     this.audioPlayer?.load({
+    //       type: "URL",
+    //       value: URL,
+    //       secondUrl: URL,
+    //     });
+    //     console.log('start play 定时广播...')
+    //   }, 5000) // 5s 后模拟定时广播
+    // }
+
+    // return
     const item = this.waitingList[0];
 
     if (item && item.startTime && item.url) {
       const now = new Date().valueOf();
       const date = new Date(item.startTime).valueOf();
       const diff = Math.abs(date - now);
-      if ((this.audioEl || this.audioPlayer) && diff < 5000) {
+      if (this.audioPlayer && diff < 5000) {
         reporter.timerRadioPlay({ ...item, _status: undefined });
         // 误差范围内开始播放
-
-        if (this.audioEl) {
-          this.loadAudio(item.url, item.ossUrl);
-        } else {
-          this.audioPlayer?.load({
-            type: "URL",
-            value: item.url,
-            secondUrl: item.ossUrl,
-          });
-        }
+        this.audioPlayer?.load({
+          type: "URL",
+          value: item.url,
+          secondUrl: item.ossUrl,
+        });
 
         // 记录，从等待播放列表中移除
         item.status = RadioStatusEnum.playing;
@@ -179,35 +162,10 @@ class RadioTimer extends Emitter {
     }
   }
 
-  private loadAudio(url: string, secondUrl?: string) {
-    this.currentSecondUrl = secondUrl; // 记录第二可用地址，无则说明不需要
-    if (!this.audioEl) {
-      return;
-    }
-    const el = this.audioEl;
-
-    el.currentTime = 0;
-    el.src = url;
-    el.load();
-    this.clearLoadTimer();
-    this.loadTimer = window.setTimeout(() => {
-      reporter.audioPlayFail({ src: url, from: "timer", event: "timeout" });
-      this.loadSecondUrl();
-    }, LoadTimeout);
-  }
-
-  private loadSecondUrl() {
-    if (this.currentSecondUrl) {
-      this.loadAudio(this.currentSecondUrl);
-    }
-  }
-
   public destroy() {
     window.clearTimeout(this.timer);
     this.waitingList.splice(0, this.waitingList.length);
     this.removeAllEvents();
-    this.audioEl?.pause();
-    this.audioEl = null;
     this.audioPlayer?.dispose();
     this.audioPlayer = undefined;
   }

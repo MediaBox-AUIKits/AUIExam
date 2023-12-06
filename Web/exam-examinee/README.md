@@ -1,4 +1,4 @@
-## 考试监考官端
+## 考试学生端
 
 ### 技术框架
 本项目使用 UmiJS 框架开发，技术栈为 React + TypeScript ，详细请了解 [UmiJS 官方文档](https://umijs.org/docs/introduce/introduce)。
@@ -11,26 +11,34 @@
 
 ### 配置项
 
-#### 1. appServer
+#### 1. aliyunUid
 
-您的服务端提供请求的域名和前缀，比如请求 https://example-domain/example/path/，则 origin 填写 https://example-domain，apiPrefixPath 填写 /example/
+请填写您开通直播、点播、OSS 等服务的阿里云userId，注意是主账号的userid 。
 
-#### 2. reporter
+#### 2. appServer
 
-SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable 设为 true，同时填写 projectName 和 logstore。如何获取 projectName 和 logstore，请参考 [SLS 文档](https://help.aliyun.com/document_detail/54604.html) 。
+您的服务端提供请求的域名和前缀，比如请求 https://example-domain/exam/path/，则 origin 填写 https://example-domain，apiPrefixPath 填写 /exam/
+
+#### 3. reporter
+
+SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable 设为 true，同时填写 projectName 和 logstore。如何获取 projectName 和 logstore，请参考 [SLS 文档](https://help.aliyun.com/zh/sls/getting-started) 。
 注意：使用 SLS 日志，将会产生对应的费用
 
-#### 3. localRecoder
+#### 4. localRecorder
 
-为是否开启本地录制功能。该功能为当推流失败（如网络异常）时将会把本地音视频内容录制储存在浏览器中，并择机上传至你配置的 oss bucket 下。
+配置本地录制，支持配置是否开启（推流异常后自动录制当前考试画面）、以及选择上传至 OSS 或 VOD等。
 
-#### 4. pagePath
+#### 5. cheatDetect
 
-当前页面的域名+路径，目前用于主机位页面（src->pages->pc）本地开发调试时设置进入考生移动端二维码的url，当是 localhost、127.0.0.1 时将替换为该值，其他情况使用当前的 origin + pathname
+配置防作弊检测所需要的 license 和 域名
 
-#### 5. licenseConfig
+#### 6. mobileCameraSwitcher
 
-智能防作弊检测的配置项。如果希望接入智能防作弊检测，您需要申请防作弊 SDK 的 license 并填入对应的字段中，详情请参考 [官方文档](https://help.aliyun.com/document_detail/2543703.htm) 。
+配置是否开启切换前后摄像头模块
+
+#### 7. defaultVideoProfile
+
+配置默认摄像头流参数
 
 ### 服务端 API 列表及说明
 
@@ -38,4 +46,4 @@ SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable �
 
 ### 使用到的阿里云服务
 
-本项目使用了多项阿里云服务，请参考《阿里云服务开通与配置》文档。
+本项目使用了多项阿里云服务（如 Live、VOD、OSS、SLS 等），更多请参考对应产品的《阿里云服务开通与配置》文档。

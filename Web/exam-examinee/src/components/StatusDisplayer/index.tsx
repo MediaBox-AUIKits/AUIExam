@@ -9,8 +9,6 @@ import {
   AudioPlayerEvents,
   InteractionEvents,
 } from "@/core";
-import { getSystemType } from "@/utils/common";
-import { reporter } from "@/utils/Reporter";
 import {
   Fragment,
   useCallback,
@@ -22,9 +20,6 @@ import {
 } from "react";
 import { throttle } from "throttle-debounce";
 import styles from "./index.less";
-
-const isIOS = getSystemType() === "iOS";
-const LoadTimeout = 10000;
 
 const PublishTextMap: {
   [x in PublishStatus]: string;
@@ -39,11 +34,12 @@ interface IStatusDisplayer {
   publishStatus: PublishStatus;
   subscribeStatus: SubscribeStatus;
   connectType: string;
-  publishVideoElement?: HTMLVideoElement;
+  onRemoteStream: (stream: MediaStream) => void; // for audio mix
+  onPlayEnd: () => void; // for stopping audio mix
 }
 
 function StatusDisplayer(props: IStatusDisplayer) {
-  const { publishStatus, subscribeStatus, connectType, publishVideoElement } =
+  const { publishStatus, subscribeStatus, connectType, onRemoteStream, onPlayEnd } =
     props;
   const { state, radioTimer, interaction } = useContext(ExamContext);
   const { userInfo, groupJoined } = state;
@@ -51,61 +47,15 @@ function StatusDisplayer(props: IStatusDisplayer) {
   const [pubErrorTipVisible, setPubErrorTipVisible] = useState<boolean>(false);
   const [radioPlaying, setRadioPlaying] = useState<boolean>(false);
   const [audioPlaying, setAudioPlaying] = useState<boolean>(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const publishVideoRef = useRef<HTMLVideoElement>();
   const audioPlayerRef = useRef<AudioPlayer>();
-  const loadTimer = useRef<number>();
-  const currentSecondUrl = useRef<string | undefined>();
   const boardcastSid = useRef<string>("");
 
   useEffect(() => {
     listenRadioTimerEvent();
     listenInteractionEvent();
-    if (isIOS) {
-      initAudioPlayer();
-    }
-
-    if (audioRef.current) {
-      audioRef.current.addEventListener("loadedmetadata", () => {
-        console.log("loadedmetadata 尝试开始播放");
-        audioRef.current?.play().then(() => {
-          console.log('播放成功');
-        }).catch((err) => {
-          console.log('播放失败', err);
-        });
-      });
-      audioRef.current.addEventListener("ended", () => {
-        console.log("系统广播播放结束");
-        setAudioPlaying(false);
-      });
-      audioRef.current.addEventListener("playing", () => {
-        console.log("系统广播播放开始");
-        interaction.feedbackBroadcastAudio(); // 改为播放了才反馈
-        setAudioPlaying(true);
-        reporter.audioPlaying({
-          src: audioRef.current?.src,
-          from: "boardcast",
-        });
-        clearLoadTimer();
-      });
-      audioRef.current.addEventListener("error", () => {
-        if (!boardcastSid.current) {
-          return;
-        }
-        reporter.audioPlayFail({
-          src: audioRef.current?.src,
-          from: "boardcast",
-          event: "error",
-        });
-        clearLoadTimer();
-        loadSecondUrl();
-      });
-    }
+    initAudioPlayer();
 
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
       if (audioPlayerRef.current) {
         audioPlayerRef.current.dispose();
       }
@@ -128,10 +78,6 @@ function StatusDisplayer(props: IStatusDisplayer) {
   }, [publishStatus, groupJoined]);
 
   useEffect(() => {
-    publishVideoRef.current = publishVideoElement;
-  }, [publishVideoElement]);
-
-  useEffect(() => {
     if (subscribeStatus === SubscribeStatus.fail) {
       setSubErrorTipVisible(true);
     } else if (
@@ -141,6 +87,18 @@ function StatusDisplayer(props: IStatusDisplayer) {
       setSubErrorTipVisible(false);
     }
   }, [subscribeStatus]);
+
+  useEffect(()=> {
+    if (audioPlaying === false) {
+      onPlayEnd();
+    }
+  }, [audioPlaying])
+
+  useEffect(() => {
+    if (radioPlaying === false) {
+      onPlayEnd();
+    }
+  }, [radioPlaying])
 
   const connectText = useMemo(() => {
     if (subscribeStatus === "success") {
@@ -159,6 +117,10 @@ function StatusDisplayer(props: IStatusDisplayer) {
       console.log(`${data ? data.name : "音频"}正在播放中`);
       setRadioPlaying(true);
     });
+    radioTimer.on('stream', (stream: MediaStream) => {
+      console.log('receive stream from radioTimer(定时广播)', stream);
+      onRemoteStream(stream);
+    })
   };
 
   const listenInteractionEvent = useCallback(() => {
@@ -170,107 +132,42 @@ function StatusDisplayer(props: IStatusDisplayer) {
         (data: any) => {
           if (boardcastSid.current !== data.sid) {
             boardcastSid.current = data.sid;
-            playAudioElement(data);
+            playAudio(data);
           }
         },
         { noLeading: true }
       )
     );
-    interaction.on(InteractionEvents.StopBroadcastAudio, stopPlayAudioElement);
+    interaction.on(InteractionEvents.StopBroadcastAudio, stopPlayAudio);
     // 收到状态重置消息时，停止系统广播
-    interaction.on(InteractionEvents.Reset, stopPlayAudioElement);
+    interaction.on(InteractionEvents.Reset, stopPlayAudio);
   }, []);
 
-  const playAudioElement = useCallback((item: any) => {
+  const playAudio = useCallback((item: any) => {
     if (!item?.url) return;
 
-    if (isIOS) {
-      audioPlayerRef.current?.load({
-        type: "URL",
-        value: item.url,
-        secondUrl: item.ossUrl,
-      });
-    } else if (audioRef.current) {
-      loadAudio(item.url, item.ossUrl);
-    }
+    audioPlayerRef.current?.load({
+      type: "URL",
+      value: item.url,
+      secondUrl: item.ossUrl,
+    });
   }, []);
 
-  const loadAudio = useCallback((url: string, secondUrl?: string) => {
-    currentSecondUrl.current = secondUrl; // 记录第二可用地址，无则说明不需要
-    if (!audioRef.current) {
-      return;
-    }
-    const el = audioRef.current;
-
-    el.currentTime = 0;
-    el.src = url;
-    el.load();
-    clearLoadTimer();
-    loadTimer.current = window.setTimeout(() => {
-      reporter.audioPlayFail({ src: url, from: "boardcast", event: "timeout" });
-      loadSecondUrl();
-    }, LoadTimeout);
-  }, []);
-
-  const clearLoadTimer = useCallback(() => {
-    if (loadTimer.current) {
-      window.clearTimeout(loadTimer.current);
-    }
-  }, []);
-
-  const loadSecondUrl = useCallback(() => {
-    if (currentSecondUrl.current) {
-      loadAudio(currentSecondUrl.current);
-    }
-  }, []);
-
-  const stopPlayAudioElement = useCallback(
+  const stopPlayAudio = useCallback(
     throttle(
       500,
       () => {
         interaction.feedbackStopBroadcastAudio();
         setAudioPlaying(false);
         boardcastSid.current = "";
-        clearLoadTimer();
 
-        if (isIOS) {
-          audioPlayerRef.current?.stop();
-          audioPlayerRef.current?.clear();
-        } else {
-          const audioEl = audioRef.current;
-          if (!audioEl) {
-            return;
-          }
-
-          audioEl.pause();
-          audioEl.currentTime = 0;
-          audioEl.src = "";
-          audioEl.load();
-        }
+        audioPlayerRef.current?.stop();
+        audioPlayerRef.current?.clear();
       },
       { noLeading: true }
     ),
     []
   );
-
-  const unMutePublishVideo = () => {
-    if (getSystemType() === "iOS" && publishVideoRef?.current) {
-      publishVideoRef.current.muted = false;
-      console.log("Unmute");
-      setTimeout(() => {
-        mutePublishVideo();
-      }, 500);
-    }
-  };
-
-  const mutePublishVideo = () => {
-    if (getSystemType() === "iOS" && publishVideoRef?.current) {
-      if (publishVideoRef.current) {
-        publishVideoRef.current.muted = true;
-        console.log("Mute again");
-      }
-    }
-  };
 
   const initAudioPlayer = () => {
     audioPlayerRef.current = new AudioPlayer();
@@ -284,6 +181,23 @@ function StatusDisplayer(props: IStatusDisplayer) {
       console.log("系统广播播放开始");
       interaction.feedbackBroadcastAudio(); // 需要反馈播放了
       setAudioPlaying(true);
+    });
+
+    audioPlayerRef.current.on(AudioPlayerEvents.Stream, (stream: MediaStream) => {
+      onRemoteStream(stream);
+
+      // FIXME: mock audio tag
+      // const audioEl = document.createElement("audio");
+      // audioEl.srcObject = stream;
+      // audioEl.controls = true;
+      // audioEl.style.position = "absolute";
+      // audioEl.style.top = '50px';
+      // audioEl.style.left = '0';
+      // audioEl.style.zIndex = '9999';
+      // audioEl.srcObject = stream;
+      // audioEl.play();
+      // console.log(audioEl, 'added.');
+      // document.body.appendChild(audioEl);
     });
   };
 
@@ -317,7 +231,6 @@ function StatusDisplayer(props: IStatusDisplayer) {
           </div>
         ) : null}
 
-        <audio ref={audioRef} controls={false} autoPlay />
       </div>
 
       <div className={styles["error-wrap"]}>

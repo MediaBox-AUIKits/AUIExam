@@ -19,6 +19,10 @@ export enum InteractionTypes {
   PubSuccess = 20017, // 考生推流成功，发给老师，区分服务端的 StreamPublish
   PubFail = 20018, // 考生推流失败，发给老师，区分服务端的 StreamStop
   SendDetectMessage = 20019, // 考生发送作弊检测消息给监考端
+
+  // 提前约定类型，暂未实现单人结束相关的消息
+  EndUser = 20020, // 监考员给考生发送的结束考试事件
+  UserEnded = 20021, // 考生给监考员发送的已结束考试事件
 }
 
 export enum InteractionEvents {
@@ -30,4 +34,8 @@ export enum InteractionEvents {
   PubFail = "PubFail",
   PubSuccess = "PubSuccess",
   SendDetectMessage = "SendDetectMessage",
+
+  // 提前约定事件，暂未实现单人结束相关的消息
+  EndUser = "EndUser",
+  UserEnded = "UserEnded",
 }

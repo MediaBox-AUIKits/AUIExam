@@ -110,9 +110,9 @@ function EndedPage() {
 
       // 初始化本地录制
       if (CONFIG.localRecorder.enable) {
-        recorder
+        await recorder
           .init({
-            examId: roomInfoRes.id,
+            examId: roomInfoRes.examId,
             roomId,
             userId,
             fetchSTSData: services.getSTSData.bind(services),

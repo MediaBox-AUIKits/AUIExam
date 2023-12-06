@@ -1,10 +1,11 @@
 import { ExamContext } from "@/context/exam";
 import { InteractionEvents } from "@/core";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import { throttle } from "throttle-debounce";
 import { Button } from "antd";
 import { FixedSizeList } from 'react-window';
+import ResizeObserver from 'resize-observer-polyfill';
 import services from "@/utils/services";
 import styles from "./index.less";
 
@@ -12,25 +13,38 @@ interface DetectListProps {
   setShowDetectModal: Function,
 }
 
-let pageSize = 10;
-const clientHeight = 820;
+const pageSize = 20;
 const itemSize = 109;
   
 function DetectList(props: DetectListProps) {
   const { setShowDetectModal } = props;
   const { state, interaction, dispatch } = useContext(ExamContext);
-  const {
-    roomInfo,
-    detectList = [],
-    scrollToken
-  } = state;
-  const [detectMessages, setDetectMessages] = useState<any[]>(detectList); // 作弊检测消息
+  const { roomInfo } = state;
+  const [scrollToken, setScrollToken] = useState<string|undefined>();
+  const [detectMessages, setDetectMessages] = useState<any[]>([]); // 作弊检测消息
+  const [wrapHeight, setWrapHeight] = useState(400);
+  const wrapEl = useRef<HTMLDivElement | null>(null);
+
+  const roomId = useMemo(() => roomInfo?.id, [roomInfo]);
+
+  const resizeObserver = useMemo(() => {
+    return new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const cr = entry.contentRect;
+        setWrapHeight(cr.height);
+      }
+    });
+  }, []);
 
   useEffect(() => {
-    if (detectList.length > 0) {
-      setDetectMessages(detectList);
+    if (wrapEl.current) {
+      resizeObserver.observe(wrapEl.current);
     }
-  }, [detectList]);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const handleDetectMessage = ({ data }: any) => {
@@ -84,8 +98,8 @@ function DetectList(props: DetectListProps) {
   };
 
   const loadMoreMessages = async () => {
-    if (roomInfo) {
-      const detectListRes: any = await services.getDetectList(roomInfo?.examId, pageSize, scrollToken);
+    if (roomId) {
+      const detectListRes: any = await services.getDetectList(roomId, pageSize, scrollToken);
       setDetectMessages((
         detectMessages.concat(
           detectListRes?.cheatRecordEntitys?.map(
@@ -98,14 +112,13 @@ function DetectList(props: DetectListProps) {
         )
       ));
 
-      dispatch({
-        type: "update",
-        payload: {
-          scrollToken: detectListRes?.scrollToken
-        },
-      });
+      setScrollToken(detectListRes?.scrollToken)
     }
   };
+
+  useEffect(() => {
+    loadMoreMessages();
+  }, [roomId])
 
   const handleScroll = useCallback(
     throttle(
@@ -113,25 +126,25 @@ function DetectList(props: DetectListProps) {
       (e: any) => {
         const scrollTop = e.scrollOffset;
         const scrollHeight = itemSize * detectMessages.length;
-        if (scrollHeight - scrollTop < clientHeight + 20 && scrollToken) {
+        if (scrollHeight - scrollTop < wrapHeight + 20 && scrollToken) {
           loadMoreMessages();
         }
-      }, 
+      },
       { noLeading: true }
     ),
-    [loadMoreMessages]
+    [loadMoreMessages, wrapHeight, scrollToken, detectMessages]
   );
 
   return (
     <div className={styles['detect-block']}>
       <div className={styles.title}>智能防作弊</div>
-      <div className={styles.sec}>
+      <div ref={wrapEl} className={styles.sec}>
         {
           detectMessages.length > 0 ? (
             <div className={styles.list}>
               <FixedSizeList
-                height={clientHeight}
-                width={269}
+                height={wrapHeight}
+                width="100%"
                 itemSize={itemSize}
                 itemCount={detectMessages.length}
                 onScroll={handleScroll}

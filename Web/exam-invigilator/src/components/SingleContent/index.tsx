@@ -10,6 +10,7 @@ import {
   IUser,
   SubscribeStatusEnum,
   UserPublishStatus,
+  UserRoleEnum,
 } from "@/types";
 import { reporter } from "@/utils/Reporter";
 import { Button, Dropdown, Space, Modal, message } from "antd";
@@ -39,7 +40,7 @@ interface IProps {
 function PersonContent(props: IProps) {
   const { mainClassName, footerClassName } = props;
   const { state, interaction, dispatch } = useContext(ExamContext);
-  const { userInfo: selfInfo, userList, activeUser, groupJoined } = state;
+  const { userInfo: selfInfo, userList, activeUser, groupJoined, role } = state;
   const [connecting, setConnecting] = useState<boolean>(false);
   const [connectInfoVisible, setConnectInfoVisible] = useState<boolean>(false);
   const [connectStatus, setConnectStatus] = useState<string>("not");
@@ -50,6 +51,8 @@ function PersonContent(props: IProps) {
   const [streamPublishStatus, setStreamPublishStatus] =
     useState<UserPublishStatus>(); // 订阅的流地址当前的推流状态
   const [enableAudioMix, setEnableAudioMix] = useState(true);
+
+  const isInvigilator = useMemo(() => UserRoleEnum.invigilator === role, [role]);
 
   const userIndex = useMemo(() => {
     if (!activeUser) {
@@ -239,7 +242,8 @@ function PersonContent(props: IProps) {
               }
             }}
             // 大屏的时候直接使用 AudioContext，扩展右声道为左右声道。（TODO: 验证非连麦情况下的监听质量）
-            playSingleChannel
+            // 监考员角色单声道，巡考员听混音
+            playSingleChannel={isInvigilator}
           />
         ) : null}
 
@@ -317,44 +321,55 @@ function PersonContent(props: IProps) {
         className={footerClassName}
         style={{ justifyContent: "flex-end" }}
       >
-        <Button size="small" onClick={toggleVideo}>
-          切换{activeUser?.isMainMonitor ? '副' : '主'}监控画面
-        </Button>
+        {
+          CONFIG.mutilMonitor.enable ? (
+            <Button size="small" onClick={toggleVideo}>
+              切换{activeUser?.isMainMonitor ? '副' : '主'}监控画面
+            </Button>
+          ) : null
+        }
         <Button size="small" onClick={gotoGrid}>
           返回25宫格
         </Button>
-        <Space wrap>
-          <Dropdown.Button
-            className={styles["connect-btn-dropdown"]}
-            size="small"
-            type="primary"
-            disabled={!groupJoined}
-            menu={{
-              items: [
-                // 可以选择不进行考生端音频混流，当做生产环境出现兼容问题的安全出口，优先保证连麦稳定性
-                { key: COMPAT_MODE, label: '兼容模式连麦', style: { fontSize: '12px', height: '24px' }, disabled: connecting },
-              ],
-              onClick: (data) => {
-                if (data.key === COMPAT_MODE) {
-                  Modal.confirm({
-                    title: '确认使用兼容模式吗？',
-                    content: '仅当普通连麦遇到问题时才使用此模式，这会导致连麦内容无法完全被记录',
-                    onOk: () => {
-                      setEnableAudioMix(false);
-                      toggleConnecting();
+        {
+          isInvigilator ? (
+            <Space wrap>
+              <Dropdown.Button
+                className={styles["connect-btn-dropdown"]}
+                size="small"
+                type="primary"
+                disabled={!groupJoined}
+                menu={{
+                  items: [
+                    // 可以选择不进行考生端音频混流，当做生产环境出现兼容问题的安全出口，优先保证连麦稳定性
+                    {
+                      key: COMPAT_MODE,
+                      label: '兼容模式连麦',
+                      style: { fontSize: '12px', height: '24px' },
+                      disabled: connecting,
                     },
-                  });
-                }
-              }
-            }}
-            onClick={() => {
-              setEnableAudioMix(true);
-              toggleConnecting();
-            }}
-          >{connecting ? "结束连麦" : "连麦"}</Dropdown.Button>
-        </Space>
-
-
+                  ],
+                  onClick: (data) => {
+                    if (data.key === COMPAT_MODE) {
+                      Modal.confirm({
+                        title: '确认使用兼容模式吗？',
+                        content: '仅当普通连麦遇到问题时才使用此模式，这会导致连麦内容无法完全被记录',
+                        onOk: () => {
+                          setEnableAudioMix(false);
+                          toggleConnecting();
+                        },
+                      });
+                    }
+                  }
+                }}
+                onClick={() => {
+                  setEnableAudioMix(true);
+                  toggleConnecting();
+                }}
+              >{connecting ? "结束连麦" : "连麦"}</Dropdown.Button>
+            </Space>
+          ) : null
+        }
       </footer>
     </Fragment>
   );

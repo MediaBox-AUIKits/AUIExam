@@ -11,14 +11,26 @@
 
 ### 配置项
 
-#### 1. appServer
+#### 1. aliyunUid
 
-您的服务端提供请求的域名和前缀，比如请求 https://example-domain/example/path/，则 origin 填写 https://example-domain，apiPrefixPath 填写 /example/
+请填写您开通直播、点播、OSS 等服务的阿里云userId，注意是主账号的userid 。
 
-#### 2. reporter
+#### 2. appServer
 
-SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable 设为 true，同时填写 projectName 和 logstore。如何获取 projectName 和 logstore，请参考 [SLS 文档](https://help.aliyun.com/document_detail/54604.html) 。
+您的服务端提供请求的域名和前缀，比如请求 https://example-domain/exam/path/，则 origin 填写 https://example-domain，apiPrefixPath 填写 /exam/
+
+#### 3. reporter
+
+SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable 设为 true，同时填写 projectName 和 logstore。如何获取 projectName 和 logstore，请参考 [SLS 文档](https://help.aliyun.com/zh/sls/getting-started) 。
 注意：使用 SLS 日志，将会产生对应的费用
+
+#### 4. detectList
+
+配置防作弊列表功能，目前仅支持配置是否开启，注意：对应的服务端接口应提前部署好
+
+#### 5. mutilMonitor
+
+多机位配置项，支持配置是否开启多机位功能，及优先展示哪个机位的流。
 
 ### 服务端 API 列表及说明
 
@@ -26,4 +38,4 @@ SLS 日志的配置项，如果希望使用埋点统计，则需要将 enable �
 
 ### 使用到的阿里云服务
 
-本项目使用了多项阿里云服务，请参考《阿里云服务开通与配置》文档。
+本项目使用了多项阿里云服务（如 Live、VOD、OSS、SLS 等），更多请参考对应产品的《阿里云服务开通与配置》文档。

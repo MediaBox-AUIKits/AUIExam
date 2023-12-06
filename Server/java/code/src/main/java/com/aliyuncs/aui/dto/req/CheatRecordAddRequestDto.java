@@ -15,8 +15,10 @@ import javax.validation.constraints.NotBlank;
 public class CheatRecordAddRequestDto {
 
     @ApiModelProperty(value = "考场Id")
-    @NotBlank(message="examId不能为空")
     private String examId;
+
+    @ApiModelProperty(value = "房间Id")
+    private String roomId;
 
     @ApiModelProperty(value = "具体作弊信息,json数组")
     @NotBlank(message="data不能为空")

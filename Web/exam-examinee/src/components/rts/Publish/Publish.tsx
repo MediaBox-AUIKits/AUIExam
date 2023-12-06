@@ -3,7 +3,7 @@ import { getSystemType } from "@/utils/common";
 import JsApi from "@/utils/JsApi";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
 import { EPublisherStatus, RtsPublisher, AudioMixer } from "@/core";
-import { Dialog, Modal, Badge, Space } from "antd-mobile";
+import { Dialog, Modal } from "antd-mobile";
 import { compare } from "compare-versions";
 import React, {
   CSSProperties,
@@ -13,14 +13,9 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { debounce } from "throttle-debounce";
 import styles from "./index.less";
-import type { LocalStream, RemoteStream } from "aliyun-rts-sdk/dist/core/interface";
-
-declare module "aliyun-rts-sdk/dist/core/interface" {
-  interface RemoteStream {
-    mediastream: MediaStream;
-  }
-}
+import type { LocalStream, RemoteStream } from "aliyun-rts-sdk";
 
 const SYS_TYPE = getSystemType();
 const RETRY_TIMEOUT = 60 * 1000;
@@ -100,11 +95,6 @@ interface IProps {
    */
   onTraceId?: (traceId: string, url: string) => any;
 
-  /**
-   * 获取渲染元素
-   */
-  onVideoElementReady?: (el: HTMLVideoElement) => any;
-
   onUnderFlow?: () => any;
   onResume?: () => any;
 
@@ -145,7 +135,8 @@ export default function Publish(props: IProps) {
     deviceInfo,
     needSwitcher = true,
   } = props;
-  const { recorder } = useContext(ExamContext);
+  const { recorder, state } = useContext(ExamContext);
+  const videoProfile = state.examInfo?.videoProfile;
   const [publisher, setPublisher] = useState<RtsPublisher>();
   const [activePublishUrl, setActivePublishUrl] = useState<string>();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -190,11 +181,6 @@ export default function Publish(props: IProps) {
     return styles;
   }, [videoHeight, videoWidth, containerHeight, containerWidth]);
 
-  useEffect(() => {
-    if (videoRef.current) {
-      props.onVideoElementReady && props.onVideoElementReady(videoRef.current);
-    }
-  }, []);
 
   useEffect(() => {
     // 监听页面resize事件，更新容器尺寸
@@ -221,6 +207,8 @@ export default function Publish(props: IProps) {
       onCreateStream: (stream) => {
         setLocalStream(stream);
         onCreateStream && onCreateStream();
+        // 钉钉环境尝试旋转横屏
+        JsApi.rotateView();
       },
       onUnderFlow: () => {
         onUnderFlow && onUnderFlow();
@@ -316,7 +304,8 @@ export default function Publish(props: IProps) {
       if (!audioMixerRef.current) {
         const audioMixer = new AudioMixer();
         audioMixerRef.current = audioMixer;
-        audioMixer.mix(remoteStream.mediastream, localStream.mediaStream);
+
+        audioMixer.mix(remoteStream.mediaStream!, localStream.mediaStream);
         const mixedAudioTrack = audioMixer.audioTrack;
         publisher.replaceAudioTrack(mixedAudioTrack);
         // console.warn('~~~~~~~~~~~~~~~~ 开始音频混流 ~~~~~~~~~~~~~~~~');
@@ -334,8 +323,32 @@ export default function Publish(props: IProps) {
 
   }, [localStream, remoteStream, publisher])
 
-  const startRecorder = (publisher: RtsPublisher) => {
-    const stream = publisher.getMediaStream();
+  const checkDingTalkStream = useMemo(() => {
+    return debounce(2000, () => {
+      // 有些钉钉机器横屏后画面依然有问题，经测试页面点击事件后再转成横屏才正常
+      // 因此检测是否需要重试转屏
+      // 先重置旋转，再横屏
+      if (
+        JsApi.isDingtalk() &&
+        videoRef.current &&
+        videoRef.current.videoWidth < videoRef.current.videoHeight
+      ) {
+        Dialog.alert({
+          content: '画面似乎有异常，请重试',
+          confirmText: '确定',
+          onConfirm: () => {
+            JsApi.resetView(
+              JsApi.rotateView.bind(JsApi),
+              JsApi.rotateView.bind(JsApi),
+            );
+          },
+        });
+      }
+    });
+  }, []);
+
+  const startRecorder = (_publisher: RtsPublisher) => {
+    const stream = _publisher.getMediaStream();
     if (!stream) {
       console.log("异常！无MediaStream");
       return;
@@ -413,7 +426,7 @@ export default function Publish(props: IProps) {
           facingMode: facingMode,
           ...(deviceInfo?.video ? {deviceId: deviceInfo?.video} : null)
         },
-      });
+      }, videoProfile);
     } catch (error: any) {
       console.log("提示用户给予摄像头麦克风权限", error);
       deviceTips(error);
@@ -442,6 +455,10 @@ export default function Publish(props: IProps) {
 
   const switchCamera = () => {
     if (!videoRef.current || switching) return;
+
+    // 需要立即停止录制，因为切换摄像头后需要将之前的 MediaStream 停掉，若不先停止录制会导致生成视频失败
+    recorder.stop(true);
+
     setSwitching(true);
     const mode = facingMode === 'user' ? 'environment' : 'user';
     publisher?.createStream(videoRef.current, {
@@ -450,7 +467,7 @@ export default function Publish(props: IProps) {
         facingMode: mode,
         ...(deviceInfo?.video ? {deviceId: deviceInfo?.video} : null)
       },
-    }).then(() => {
+    }, videoProfile).then(() => {
       publisher?.replaceVideoTrack();
       publisher?.replaceAudioTrack();
       setFacingMode(mode);
@@ -467,6 +484,7 @@ export default function Publish(props: IProps) {
     <div ref={containerRef} className={className}>
       <div className={styles.wrap} style={wrapStyle}>
         <video
+          id="local-previewer"
           muted
           controls={controls ?? true}
           autoPlay
@@ -479,8 +497,10 @@ export default function Publish(props: IProps) {
           ref={videoRef}
           onResize={() => {
             if (videoRef.current) {
+              console.log('video size ->', videoRef.current.videoWidth, videoRef.current.videoHeight);
               setVideoWidth(videoRef.current.videoWidth);
               setVideoHeight(videoRef.current.videoHeight);
+              checkDingTalkStream();
             }
           }}
           onCanPlay={() => {

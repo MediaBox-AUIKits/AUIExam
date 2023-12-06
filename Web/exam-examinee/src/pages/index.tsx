@@ -3,8 +3,9 @@ import Publish from "@/components/rts/Publish";
 import Subscribe from "@/components/rts/Subscribe";
 import SilenceAudio from "@/components/SilenceAudio";
 import StatusDisplayer from "@/components/StatusDisplayer";
+import CheatDetection from "@/components/CheatDetection";
 import { ExamContext } from "@/context/exam";
-import { InteractionEvents } from "@/core";
+import { AudioPlayerEvents, InteractionEvents } from "@/core";
 import {
   PublishStatus,
   RoomStatusEnum,
@@ -32,14 +33,10 @@ import {
 } from "react";
 import { throttle } from "throttle-debounce";
 import { history } from "umi";
-import dayjs from "dayjs";
 import styles from "./index.less";
-import type { RemoteStream } from "aliyun-rts-sdk/dist/core/interface";
+import type { RemoteStream } from "aliyun-rts-sdk";
 
 type ConnectType = "" | "single" | "broadcast" | "init_broadcast";
-declare const AliyunDetectEngine: any;
-let cheatEngine: any;
-let detectMessages: any[] = []; // 5s内检测的作弊消息
 
 function ExamPage() {
   const { state, recorder, interaction, radioTimer, dispatch } =
@@ -61,13 +58,8 @@ function ExamPage() {
   const [showUdpConnectionWarning, setShowUdpConnectionWarning] =
     useState(false);
   const [inBackground, setInBackground] = useState(false);
-  const [publishVideoElement, setPublishVideoElement] =
-    useState<HTMLVideoElement>();
   const [remoteStream, setRemoteStream] = useState<RemoteStream>();
   const [enableAudioMix, setEnableAudioMix] = useState<boolean>(true); // 是否开启1v1通话混流，将监考和考生的声音通过混在一起
-
-  const [detectResult, setDetectResult] = useState<any>();
-  const [mobileDetectConfig, setMobileDetectConfig] = useState<any>();
 
   const debugInfoRef = useRef<Record<string, any>>();
   const playAfterCaptureRef = useRef<boolean>(false);
@@ -104,183 +96,8 @@ function ExamPage() {
       window.clearInterval(timer.current);
       interaction.logout();
       radioTimer.destroy();
-      cheatEngine?.destroy();
     };
   }, []);
-
-  const isOpenDetect = useMemo(() => {
-    // 用户licenseKey未配置，不开启作弊检测
-    return CONFIG.licenseConfig.licenseKey !== '';
-  }, []);
-
-  useEffect(() => {
-    let timer: any = null;
-    if (roomInfo && isOpenDetect) {
-      timer = setInterval(() => {
-        let headUpDownCount = 0, headShakingCount = 0, msgSet = new Set();
-        const msgRes = detectMessages.filter(msg => {
-          if (msg.detectType == "headUpDown") {
-            headUpDownCount++
-            return headUpDownCount === 2
-          }
-          if (msg.detectType == "headShaking") {
-            headShakingCount++
-            return headShakingCount === 2
-          }
-          if (msgSet.has(msg.detectType)) {
-            return false
-          } else {
-            msgSet.add(msg.detectType)
-            return true
-          }
-        }).map(item => {
-          item.detectTime = dayjs().valueOf();
-          item.isMainMonitor = false;
-          item.userId = getParamFromSearch("userId");
-          return item
-        });
-  
-        if (msgRes.length > 0) {
-          services.uploadDetectMessage({
-            examId: roomInfo?.examId,
-            data: JSON.stringify(msgRes)
-          }).then(() => {
-            //
-          }).catch((err) => {
-            console.log(err)
-          });
-    
-          interaction.sendDetectMessage(msgRes);
-        }
-  
-        detectMessages = [];
-      }, 5000);
-    }
-    return () => {
-      timer && clearInterval(timer);
-    }
-  }, [roomInfo, isOpenDetect]);
-
-  const detectRuleList = [
-    {
-      detectType: "scenePersonExit",
-      rule: detectResult?.scenePersonExit === 1 && detectResult?.faceCount === 0,
-      message: `${userInfo?.name}疑似离开了`,
-    },
-    {
-      detectType: "manyPeople",
-      rule: detectResult?.faceCount > 1,
-      message: `${userInfo?.name}画面疑似有多个人`,
-    },
-    {
-      detectType: "actionPoseStandup",
-      rule: detectResult?.actionPoseStandup > 0.8,
-      message: `${userInfo?.name}疑似起立了`,
-    },
-    {
-      detectType: "actionHeadUpDown",
-      rule: detectResult?.actionHeadUpDown > 0.8,
-      message: `${userInfo?.name}疑似频繁点头`,
-      triggerCount: 2, // 5s两次
-    },
-    {
-      detectType: "headShaking",
-      rule: detectResult?.actionHeadLeftRight > 0.8 || detectResult?.actionHeadShaking > 0.8,
-      message: `${userInfo?.name}疑似频繁转头/摇头`,
-      triggerCount: 2, // 5s两次
-    },
-    {
-      detectType: "watch",
-      rule: detectResult?.objectDetectWatch > 0.5,
-      message: `${userInfo?.name}疑似戴手表`,
-    },
-    {
-      detectType: "earPhone",
-      rule: detectResult?.objectHeadPhone > 0.3 || detectResult?.objectEarPhone > 0.3,
-      message: `${userInfo?.name}疑似戴耳机`,
-    },
-    {
-      detectType: "cellPhone",
-      rule: detectResult?.objectDetectCellPhone > 0.3,
-      message: `${userInfo?.name}疑似打电话`,
-    },
-    {
-      detectType: "actionPersonSpeech",
-      rule: detectResult?.actionPersonSpeech > 0.8,
-      message: `${userInfo?.name}疑似现场有人说话`,
-    },
-    {
-      detectType: "actionPoseHandup",
-      rule: detectResult?.actionPoseHandup > 0.8,
-      message: `${userInfo?.name}疑似举手了`,
-    },
-  ].filter(item => {
-    if (!mobileDetectConfig) return false;
-    if (item.detectType === "watch" || item.detectType === "earPhone" || item.detectType === "cellPhone") {
-      return mobileDetectConfig.objectDetect;
-    }
-    return mobileDetectConfig[item.detectType];
-  })
-
-  useEffect(() => {
-    if (detectResult) {
-      detectRuleList.forEach((item) => {
-        if (item.rule) {
-          detectMessages.push({
-            detectType: item.detectType,
-            extraInfo: {
-              message: item.message,
-            }
-          });
-        }
-      })
-    }
-  }, [detectResult])
-
-  const cheatDetection = async () => {
-    cheatEngine = new AliyunDetectEngine();
-    let config = {
-      fps: 5,
-      objectDetect: false, //电子设备检测
-      scenePersonEnter: false, //人物进入  不需要
-      scenePersonExit: false, //离开
-      scenePersonInRectRatio: false, //画面占比  不需要
-      actionHeadUpDown: false, //低/抬头
-      actionHeadLeftRight: false, //转头
-      actionHeadShaking: false, //摇头
-      actionPoseStandup: false, //起立
-      actionPoseSitting: false, //坐下  不需要
-      actionPoseHandup: false, //举手
-      actionPersonSpeech: false, //声音
-      licenseKey: CONFIG.licenseConfig.licenseKey,
-      licenseDomain: CONFIG.licenseConfig.licenseDomain,
-    };
-
-    await services.getCheatConfig(roomInfo?.examId || '').then(res => {
-      const mobileDetectConfig = JSON.parse(res.data).mobile;
-      setMobileDetectConfig(mobileDetectConfig);
-      const cloneConfig = {...mobileDetectConfig};
-      delete cloneConfig.manyPeople; // sdk默认检测人数，不需要这项输入，同时要去掉多人检测结果的输出
-      if (cloneConfig.headShaking) { // 创建考场时若选择转头/摇头检测，需要开启两项sdk检测配置
-        config.actionHeadLeftRight = true;
-        config.actionHeadShaking = true;
-      }
-      delete cloneConfig.headShaking;
-      config = {
-        ...config,
-        ...cloneConfig
-      };
-    });
-
-    await cheatEngine.init(config);
-
-    const videos = document.querySelectorAll('video');
-    const video = videos[0] as HTMLVideoElement;
-    cheatEngine.startDetect(video, video?.clientWidth, video?.clientHeight);
-    cheatEngine.on('detectResult', (result: any) => {
-      setDetectResult(result);
-    });
-  }
 
   const initPage = async () => {
     const mock = getParamFromSearch("mock");
@@ -486,7 +303,7 @@ function ExamPage() {
           // 回复
           interaction.answerCallDisconnected();
           // 清空 remoteStream，停止音频混流，直推麦克风
-          setRemoteStream(undefined);
+          stopChannelMix();
         },
         { noLeading: true }
       )
@@ -523,7 +340,7 @@ function ExamPage() {
           setSubscribeStatus(SubscribeStatus.disconnect);
           interaction.feedbackStopBroadcastLive();
           playAfterCaptureRef.current = false;
-          setRemoteStream(undefined);
+          stopChannelMix();
         },
         { noLeading: true }
       )
@@ -542,7 +359,7 @@ function ExamPage() {
           liveSid.current = "";
           setEnableSubscribe(false);
           setSubscribeStatus(SubscribeStatus.disconnect);
-          setRemoteStream(undefined);
+          stopChannelMix();
         },
         { noLeading: true }
       )
@@ -638,6 +455,7 @@ function ExamPage() {
         "resume",
         function (e) {
           e.preventDefault();
+          reporter.pageState({ state: 'resume' });
           setInBackground(false);
           if (getSystemType() !== "Android") return;
           if (!window.location.hash.replace("#", "").replace("/", "")) {
@@ -655,6 +473,7 @@ function ExamPage() {
       // 退到后台的事件监听(webview)
       document.addEventListener("pause", function (e) {
         e.preventDefault();
+        reporter.pageState({ state: 'pause' });
         setInBackground(true);
       });
     });
@@ -665,6 +484,36 @@ function ExamPage() {
       reporter.sdpSupportH264({ res });
     });
   };
+
+  // 处理老师多媒体流可以播放的事件，需要做节流，防止未知原因的大量触发
+  const handleTeacherStreamCanplay = throttle(10000, () => {
+    setSubscribeStatus(SubscribeStatus.success);
+    console.log("通知业务系统学生已经拉到老师的流，可以开始通话");
+    // 回复老师端已联通
+    if (connectType === "single") {
+      interaction.answerCallConnected();
+    } else if (connectType === "broadcast") {
+      interaction.feedbackBroadcastLive();
+    } else if (connectType === "init_broadcast") {
+      interaction.feedbackBroadcastLive(true);
+    }
+  });
+
+  const startChannelMix = (remoteStream: RemoteStream) => {
+    if (enableAudioMix) {
+
+      // iOS 14 在同时有两个 ac（混音 + 播放）的时候播放会产生噪音，所以不进行音频混流，优先保证通话音量 https://bugs.webkit.org/show_bug.cgi?id=218762
+      const iOSVersion = getIOSVersion();
+      if (iOSVersion[0] === 14) return;
+
+      // 开始音频混流
+      setRemoteStream(remoteStream);
+    }
+  }
+
+  const stopChannelMix = () => {
+    setRemoteStream(undefined);
+  }
 
   return (
     <section className={styles.page}>
@@ -708,6 +557,7 @@ function ExamPage() {
               className={styles.previewer}
               publishUrl={userInfo.rtcPushUrl}
               controls={false}
+              needSwitcher={CONFIG.mobileCameraSwitcher.enable}
               remoteStream={remoteStream}
               onCreateStream={() => {
                 activeAutoReloadRef.current = true;
@@ -716,7 +566,6 @@ function ExamPage() {
                 }
               }}
               onPublishOk={() => {
-                isOpenDetect && cheatDetection();
                 console.log("推流成功");
                 setPublishStatus(PublishStatus.success);
               }}
@@ -727,9 +576,6 @@ function ExamPage() {
                 console.log("on traceId", traceId, url);
 
                 debugInfoRef.current = { pubTraceId: traceId, pubUrl: url };
-              }}
-              onVideoElementReady={(el) => {
-                setPublishVideoElement(el);
               }}
               onUnderFlow={() => {
                 if (!inBackground) {
@@ -764,7 +610,12 @@ function ExamPage() {
         publishStatus={publishStatus}
         subscribeStatus={subscribeStatus}
         connectType={connectType}
-        publishVideoElement={publishVideoElement}
+        onRemoteStream={(stream) => {
+          startChannelMix({ mediaStream: stream } as RemoteStream)
+        }}
+        onPlayEnd={() => {
+          stopChannelMix();
+        }}
       />
 
       <div className={styles.invigilator}>
@@ -780,18 +631,7 @@ function ExamPage() {
             console.log("正在订阅中...");
             setSubscribeStatus(SubscribeStatus.connecting);
           }}
-          onCanplay={() => {
-            setSubscribeStatus(SubscribeStatus.success);
-            console.log("通知业务系统学生已经拉到老师的流，可以开始通话");
-            // 回复老师端已联通
-            if (connectType === "single") {
-              interaction.answerCallConnected();
-            } else if (connectType === "broadcast") {
-              interaction.feedbackBroadcastLive();
-            } else if (connectType === "init_broadcast") {
-              interaction.feedbackBroadcastLive(true);
-            }
-          }}
+          onCanplay={handleTeacherStreamCanplay}
           onSubscribeRetryFailed={(type) => {
             // if (type === 'signal') {
             //   exceptionNotice('连接重试多次仍无法成功，请尝试切换WIFI/蜂窝网络；如果仍无法解决问题，请联系管理员。');
@@ -803,15 +643,7 @@ function ExamPage() {
             handleSubscribeFail();
           }}
           onRemoteStream={(remoteStream) => {
-            if (connectType === 'single' && enableAudioMix) {
-
-              // iOS 14 在同时有两个 ac（混音 + 播放）的时候播放会产生噪音，所以不进行音频混流，优先保证通话音量 https://bugs.webkit.org/show_bug.cgi?id=218762
-              const iOSVersion = getIOSVersion();
-              if (iOSVersion[0] === 14) return;
-
-              // 1v1 通话才进行音频混流
-              setRemoteStream(remoteStream);
-            }
+            startChannelMix(remoteStream);
           }}
         />
       )}
@@ -820,6 +652,8 @@ function ExamPage() {
           setSilencePlaySettled(true);
         }}
       />
+
+      <CheatDetection device="mobile" publishStatus={publishStatus} />
     </section>
   );
 }

@@ -6,6 +6,7 @@ import com.aliyuncs.aui.dto.req.*;
 import com.aliyuncs.aui.dto.res.*;
 import com.aliyuncs.aui.service.ExamService;
 import com.aliyuncs.aui.service.RoomInfoService;
+import com.aliyuncs.aui.service.UploadService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,6 +33,9 @@ public class RoomInfoController {
 
     @Resource
     private ExamService examinationsService;
+
+    @Resource
+    private UploadService uploadService;
 
     /**
      * 获取Im的token
@@ -162,5 +166,20 @@ public class RoomInfoController {
             return Result.ok(selectAudioDataDto);
         }
         return Result.notFound();
+    }
+
+    /**
+     * 获取上传 OSS 所需的 STS 数据
+     */
+    @RequestMapping("/getOssConfig")
+    public Result getOssConfig(UploadConfigGetRequestDto uploadConfigGetRequestDto) {
+
+        ValidatorUtils.validateEntity(uploadConfigGetRequestDto);
+
+        UploadSTSInfoResponse infoResponse = uploadService.get(uploadConfigGetRequestDto);
+        if (infoResponse != null) {
+            return Result.ok(infoResponse);
+        }
+        return Result.error(false);
     }
 }

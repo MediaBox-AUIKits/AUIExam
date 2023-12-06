@@ -15,8 +15,8 @@ interface IExamState {
   roomInfo?: IRoom;
   userInfo?: IUser;
   userList: IUser[];
-  detectList?: any[];
-  scrollToken?: string;
+  
+  // 防作弊查看用到
   viewExamineeId? :string;
   viewExamineeDetectMsg? :string;
 

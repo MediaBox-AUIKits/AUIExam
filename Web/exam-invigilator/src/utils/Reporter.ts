@@ -69,6 +69,7 @@ enum EMsgid {
   RECEIVE_ENTER_ROOM = 1115,
   RECEIVE_PUB_SUCCESS = 1116,
   RECEIVE_PUB_FAIL = 1117,
+  PLAY_CHANNEL_MODE = 1118, // 单声道 vs 默认播放
 
   // 技术类 2xx
 
@@ -467,6 +468,13 @@ export class Reporter {
     this.report({
       msgid: EMsgid.UPDATE_BOARDCAST_LIVE_STATUS_ERROR,
       args: { ...params },
+    });
+  }
+
+  public playChannelMode(mode: 'single' | 'default') {
+    this.report({
+      msgid: EMsgid.PLAY_CHANNEL_MODE,
+      args: { mode },
     });
   }
 

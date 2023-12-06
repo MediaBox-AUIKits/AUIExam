@@ -38,6 +38,7 @@ public class CheatRecordServiceImpl extends ServiceImpl<CheatRecordDao, CheatRec
 
         for (CheatRecordEntity cheatRecordEntity : cheatRecordEntities) {
             cheatRecordEntity.setExamId(cheatRecordAddRequestDto.getExamId());
+            cheatRecordEntity.setRoomId(cheatRecordAddRequestDto.getRoomId());
             cheatRecordEntity.setCreatedAt(new Date());
             cheatRecordEntity.setUpdatedAt(cheatRecordEntity.getCreatedAt());
         }
@@ -49,9 +50,18 @@ public class CheatRecordServiceImpl extends ServiceImpl<CheatRecordDao, CheatRec
     public CheatRecordListResponseDto listCheatRecord(CheatRecordListRequestDto cheatRecordListRequestDto) {
 
         QueryWrapper<CheatRecordEntity> queryWrapper = new QueryWrapper<>();
-        LambdaQueryWrapper<CheatRecordEntity> cheatRecordEntityLambdaQueryWrapper = queryWrapper.lambda().
-                eq(CheatRecordEntity::getExamId, cheatRecordListRequestDto.getExamId())
-                .orderByDesc(CheatRecordEntity::getId);
+
+        LambdaQueryWrapper<CheatRecordEntity> cheatRecordEntityLambdaQueryWrapper = queryWrapper.lambda();
+
+        if (Strings.isNotEmpty(cheatRecordListRequestDto.getExamId())) {
+            cheatRecordEntityLambdaQueryWrapper.eq(CheatRecordEntity::getExamId, cheatRecordListRequestDto.getExamId());
+        }
+
+        if (Strings.isNotEmpty(cheatRecordListRequestDto.getRoomId())) {
+            cheatRecordEntityLambdaQueryWrapper.eq(CheatRecordEntity::getRoomId, cheatRecordListRequestDto.getRoomId());
+        }
+
+        cheatRecordEntityLambdaQueryWrapper.orderByDesc(CheatRecordEntity::getId);
 
         if (Strings.isNotEmpty(cheatRecordListRequestDto.getScrollToken())) {
             cheatRecordEntityLambdaQueryWrapper.lt(CheatRecordEntity::getId, Long.parseLong(cheatRecordListRequestDto.getScrollToken()));

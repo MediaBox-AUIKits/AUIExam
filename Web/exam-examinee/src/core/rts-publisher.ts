@@ -1,5 +1,7 @@
 import { AliRTS } from "aliyun-rts-sdk";
-import { LocalStream } from "aliyun-rts-sdk/dist/core/model/stream/localstream";
+import type { LocalStream } from "aliyun-rts-sdk";
+import { IVideoProfile } from "@/types/exam";
+import { deepClone, isValidPositiveNumber } from "@/utils/common";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
 import SdpUtil from "@/utils/SdpUtil";
 import {
@@ -85,15 +87,45 @@ type IProps = {
   maxRetry?: number;
 } & IBaseProps;
 
+// 检查传入的 VideoProfile 合法性，获得合适的 VideoProfile
+function getVideoProfile(videoProfile?: IVideoProfile) {
+  reporter.receiveVideoProfile(videoProfile);
+  const profile = deepClone(videoProfile || CONFIG.defaultVideoProfile || {});
+
+  // 低配低版本安卓手机，若高于 360P 可能取到的画面是黑屏
+  // 建议真实考试时请勿超过 360P
+  const DefaultWidth = 640;
+  const DefaultHeight = 360;
+  const DefaultFrameRate = 30;
+  const DefaultMaxBitrate = 800;
+
+  // 检查传入的数据合法性
+  profile.name = profile.name || 'custom_default';
+  profile.data = profile.data || {};
+  if (!isValidPositiveNumber(profile.data.width)) {
+    profile.data.width = DefaultWidth;
+  }
+  if (!isValidPositiveNumber(profile.data.height)) {
+    profile.data.height = DefaultHeight;
+  }
+  if (!isValidPositiveNumber(profile.data.frameRate)) {
+    profile.data.frameRate = DefaultFrameRate;
+  }
+  if (!isValidPositiveNumber(profile.data.maxBitrate)) {
+    profile.data.maxBitrate = DefaultMaxBitrate;
+  }
+
+  reporter.validatedVideoProfile(profile);
+  return profile;
+}
+
 export class RtsPublisher extends RtsBase {
   static MAX_RETRY = 3;
-  static RETRY_INTERVAL = 1 * 1000;
+  static RETRY_INTERVAL = 2 * 1000;
 
   private _publishUrl?: string;
   private _localStream?: LocalStream;
   private _publishMonitor: PublishMonitor;
-  private _retryCount = 0;
-  private _retryTimer?: NodeJS.Timer;
   private _maxRetry = RtsPublisher.MAX_RETRY;
 
   private _props: IProps;
@@ -130,54 +162,56 @@ export class RtsPublisher extends RtsBase {
     this.bindEvents();
   }
 
+  public stopLocalStream() {
+    // 停止从系统获取音视频流
+    if (this._localStream) {
+      this._localStream.stop();
+    }
+  }
+
   public createStream(
     renderEl: HTMLVideoElement,
-    config?: { video?: any; audio?: any }
+    config?: { video?: any; audio?: any },
+    videoProfile?: IVideoProfile,
   ) {
+    // 将之前的 LocalStream 停用
+    this.stopLocalStream();
+    const streamConfig = {
+      audio: config?.audio ?? true,
+      video: config?.video ?? true,
+      screen: false,
+    };
     return new Promise((resolve, reject) => {
-      AliRTS.createStream({
-        audio: config?.audio ?? true,
-        video: config?.video ?? true,
-        screen: false,
-      })
+      AliRTS.createStream(streamConfig)
         .then((localStream) => {
           console.log("created stream: ", localStream);
           this._props.onCreateStream && this._props.onCreateStream(localStream);
 
           // @ts-ignore-next-line
           if (localStream.hasVideo) {
-            // @ts-ignore-next-line
-            // localStream.VideoProfileMap.set('custom_540_800k', { width: 960, height: 540, frameRate: 15, maxBitrate: 800 })
-            localStream.VideoProfileMap.set("custom_360_800k", {
-              width: 640,
-              height: 360,
-              frameRate: 30,
-              maxBitrate: 800,
-            });
-            localStream.setVideoProfile("custom_360_800k");
-            console.log("setting to custom_360_800k");
+            const profile = getVideoProfile(videoProfile);
+            localStream.VideoProfileMap.set(profile.name, profile.data);
+            localStream.setVideoProfile(profile.name);
+            localStream.videoTrack!.contentHint = "detail";
 
+            // 以下代码为保证最小码率的，若需要可以开启
             // @ts-ignore-next-line
-            localStream.sdpHook = (sdp: string) => {
-              if (this.SystemUtil.isIos) {
-                return sdp.replace(
-                  /sps-pps-idr-in-keyframe=1/g,
-                  "sps-pps-idr-in-keyframe=1;x-google-min-bitrate=700"
-                ); // min-bitrate 需要调高一点才能达到预期的值
-              } else if (this.SystemUtil.isAndroid) {
-                return sdp.replace(
-                  /sps-pps-idr-in-keyframe=1/g,
-                  "sps-pps-idr-in-keyframe=1;x-google-min-bitrate=1400"
-                ); // 早期chrome版本码率会一直保持在最低值的一半，这里 double 解决
-              }
-              return sdp;
-            };
+            // localStream.sdpHook = (sdp: string) => {
+            //   if (this.SystemUtil.isIos) {
+            //     return sdp.replace(
+            //       /sps-pps-idr-in-keyframe=1/g,
+            //       "sps-pps-idr-in-keyframe=1;x-google-min-bitrate=700"
+            //     ); // min-bitrate 需要调高一点才能达到预期的值
+            //   } else if (this.SystemUtil.isAndroid) {
+            //     return sdp.replace(
+            //       /sps-pps-idr-in-keyframe=1/g,
+            //       "sps-pps-idr-in-keyframe=1;x-google-min-bitrate=1400"
+            //     ); // 早期chrome版本码率会一直保持在最低值的一半，这里 double 解决
+            //   }
+            //   return sdp;
+            // };
           }
 
-          // 将之前的 LocalStream 停用
-          if (this._localStream) {
-            this._localStream.stop();
-          }
           this._localStream = localStream;
           // 预览推流内容，mediaElement是媒体标签audio或video
           renderEl && localStream.play(renderEl);
@@ -190,6 +224,7 @@ export class RtsPublisher extends RtsBase {
             url: this._publishUrl || "",
             errorCode: ERtsExceptionType.DeviceError,
             deviceErrorCode: err.errorCode,
+            streamConfig,
           });
           let deviceType;
           if (
@@ -218,16 +253,12 @@ export class RtsPublisher extends RtsBase {
     });
   }
 
-  public publish(pushUrl: string, _resolve?: any, _reject?: any) {
+  public publish(pushUrl: string) {
     console.log("开始推流：", pushUrl);
-    this.clearRetryTimer();
 
     this._publishUrl = pushUrl;
     this._publishMonitor?.stop();
     return new Promise((resolve, reject) => {
-      resolve = _resolve || resolve;
-      reject = _reject || reject;
-
       if (!this._localStream) {
         reject("no localstream");
         return;
@@ -235,6 +266,8 @@ export class RtsPublisher extends RtsBase {
 
       this._rtsClient
         .publish(pushUrl, this._localStream, {
+          retryTimes: this._maxRetry,
+          retryInterval: RtsPublisher.RETRY_INTERVAL,
           offerSdpHook: (sdp) => {
             const sdpUtil = new SdpUtil(sdp);
             sdpUtil.addStereo();
@@ -247,36 +280,25 @@ export class RtsPublisher extends RtsBase {
           this._props.onStatusChange &&
             this._props.onStatusChange(EPublisherStatus.Available);
           this._props.onPublishOk && this._props.onPublishOk();
-          this._retryCount = 0;
           resolve("");
         })
         .catch((err) => {
           this._props.onPublishFailed && this._props.onPublishFailed();
-          if (this._retryCount < this._maxRetry) {
-            this._retryCount++;
 
-            this._retryTimer = setTimeout(() => {
-              console.log(`Retrying publish ${this._retryCount}th time`);
-              this.publish(pushUrl, resolve, reject);
-            }, RtsPublisher.RETRY_INTERVAL);
-          } else {
-            this._retryCount = 0;
-            this._props?.onRetryReachLimit && this._props?.onRetryReachLimit();
-            reporter.publishException({
-              url: this._publishUrl || "",
-              errorCode: ERtsExceptionType.RetryReachLimit,
-              retryCount: this._maxRetry,
-              traceId: this._traceId,
-            });
-            this._props.onStatusChange &&
-              this._props.onStatusChange(EPublisherStatus.Unavailable);
-            // 订阅失败
-            reject(err);
-          }
+          // may not happen if maxRetry is Infinity
+          this._props?.onRetryReachLimit && this._props?.onRetryReachLimit();
+          reporter.publishException({
+            url: this._publishUrl || "",
+            errorCode: ERtsExceptionType.RetryReachLimit,
+            retryCount: this._maxRetry,
+            traceId: this._traceId,
+          });
+          this._props.onStatusChange &&
+            this._props.onStatusChange(EPublisherStatus.Unavailable);
 
           // 推流失败
           console.log("推流失败", err);
-          reject("");
+          reject(err);
         });
     });
   }
@@ -286,6 +308,10 @@ export class RtsPublisher extends RtsBase {
     const aTrack = audioTrack || this._localStream.audioTrack;
     // @ts-ignore
     const pc = this._rtsClient.publisher.peerconnection.pc as RTCPeerConnection;
+    if (!pc) {
+      // 未推流不需要 replaceTrack
+      return;
+    }
     const audioSender = pc.getSenders().find(sender => sender.track?.kind === 'audio');
     if (audioSender && aTrack) {
       audioSender.replaceTrack(aTrack);
@@ -299,6 +325,10 @@ export class RtsPublisher extends RtsBase {
     const vTrack = videoTrack || this._localStream.videoTrack;
     // @ts-ignore
     const pc = this._rtsClient.publisher.peerconnection.pc as RTCPeerConnection;
+    if (!pc) {
+      // 未推流不需要 replaceTrack
+      return;
+    }
     const videoSender = pc.getSenders().find(sender => sender.track?.kind === 'video');
     if (videoSender && vTrack) {
       videoSender.replaceTrack(vTrack);
@@ -323,7 +353,6 @@ export class RtsPublisher extends RtsBase {
   }
 
   public unPublish() {
-    this.clearRetryTimer();
     this._rtsClient?.unpublish();
   }
 
@@ -337,7 +366,6 @@ export class RtsPublisher extends RtsBase {
     }
     this._localStream = undefined;
     this._publishUrl = undefined;
-    this._retryCount = 0;
     this._publishMonitor.dispose();
   }
 
@@ -354,9 +382,6 @@ export class RtsPublisher extends RtsBase {
         switch (event.status) {
           case EConnectStatus.CONNECT_STATUS_DISCONNECTED:
             onStatusChange(EPublisherStatus.Unavailable);
-            if (this._publishUrl) {
-              this.publish(this._publishUrl);
-            }
             break;
           case EConnectStatus.CONNECT_STATUS_RECONNECTING:
             onStatusChange(EPublisherStatus.Unavailable);
@@ -367,13 +392,6 @@ export class RtsPublisher extends RtsBase {
             break;
         }
       });
-    }
-  }
-
-  private clearRetryTimer() {
-    if (this._retryTimer) {
-      clearTimeout(this._retryTimer);
-      this._retryTimer = undefined;
     }
   }
 

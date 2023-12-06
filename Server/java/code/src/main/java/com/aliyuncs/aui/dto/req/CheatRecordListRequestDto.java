@@ -7,8 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.validation.constraints.NotBlank;
-
 /**
  * 获取作弊检测信息
  * @author chunlei.zcl
@@ -20,9 +18,11 @@ import javax.validation.constraints.NotBlank;
 @ApiModel(value = "获取作弊检测信息")
 public class CheatRecordListRequestDto {
 
-    @ApiModelProperty(value = "考场Id")
-    @NotBlank(message="examId不能为空")
+    @ApiModelProperty(value = "考试Id")
     private String examId;
+
+    @ApiModelProperty(value = "考场Id")
+    private String roomId;
 
     private Integer pageSize = 20;
 

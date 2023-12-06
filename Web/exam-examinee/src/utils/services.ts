@@ -115,9 +115,12 @@ class Services {
    * @param {string} examId
    * @return {Promise}
    */
-  public getSTSData(examId: string) {
+  public getSTSData(examId: string, mode?: string) {
     return this.request.get("getOssConfig", {
-      params: { examId },
+      params: {
+        examId,
+        mode,
+      },
     });
   }
 
@@ -151,6 +154,7 @@ class Services {
    */
     public uploadDetectMessage(options: {
       examId: string,
+      roomId: string,
       data: string
     }) {
       return this.request.post("cheat/addCheatRecord", options);

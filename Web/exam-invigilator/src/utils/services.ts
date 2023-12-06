@@ -117,7 +117,8 @@ class Services {
         const list = res.map((item: any) => ({
           ...item,
           muted: true,
-          isMainMonitor: true,
+          // 是否默认使用主机位
+          isMainMonitor: CONFIG.mutilMonitor.enable && CONFIG.mutilMonitor.preferMainMonitor,
         }));
         return list;
       });
@@ -198,23 +199,13 @@ class Services {
   /**
    * 获取作弊检测消息
    */
-    public getDetectList(examId: IDType, pageSize: number, scrollToken?: string) {
-      return this.request.post("cheat/listCheatRecord", {
-        examId,
-        pageSize,
-        scrollToken,
-      });
-    }
-
-  /**
-   * 上传作弊检测消息
-   */
-    public uploadDetectMessage(options: {
-      examId: IDType,
-      data: string
-    }) {
-      return this.request.post("cheat/addCheatRecord", options);
-    }
+  public getDetectList(roomId: IDType, pageSize: number, scrollToken?: string) {
+    return this.request.post("cheat/listCheatRecord", {
+      roomId,
+      pageSize,
+      scrollToken,
+    });
+  }
 }
 
 export default new Services();

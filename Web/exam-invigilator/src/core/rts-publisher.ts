@@ -1,5 +1,4 @@
 import { AliRTS } from "aliyun-rts-sdk";
-import { LocalStream } from "aliyun-rts-sdk/dist/core/interface";
 import { ERtsExceptionType, reporter } from "../utils/Reporter";
 import {
   EConnectStatus,
@@ -8,6 +7,7 @@ import {
   RtsBase,
 } from "./rts-base";
 import { PublishMonitor } from "./rts-monitor/publish-monitor";
+import type { LocalStream } from "aliyun-rts-sdk";
 
 export enum DeviceErrorCode {
   ERROR_DEVICE_UNKNOWNERROR = 10000,
@@ -80,7 +80,7 @@ type IProps = {
 
 export class RtsPublisher extends RtsBase {
   static MAX_RETRY = 3;
-  static RETRY_INTERVAL = 1 * 1000;
+  static RETRY_INTERVAL = 2 * 1000;
 
   private _publishUrl?: string;
   private _localStream?: LocalStream;
@@ -208,65 +208,48 @@ export class RtsPublisher extends RtsBase {
     });
   }
 
-  public publish(pushUrl: string, _resolve?: any, _reject?: any) {
+  public publish(pushUrl: string) {
     console.log("开始推流：", pushUrl);
-    this.clearRetryTimer();
-
     this._publishUrl = pushUrl;
     this._publishMonitor?.stop();
     return new Promise((resolve, reject) => {
-      resolve = _resolve || resolve;
-      reject = _reject || reject;
-
       if (!this._localStream) {
         reject("no localstream");
         return;
       }
 
       this._rtsClient
-        .publish(pushUrl, this._localStream)
+        .publish(pushUrl, this._localStream, {
+          retryTimes: this._maxRetry,
+          retryInterval: RtsPublisher.RETRY_INTERVAL
+        })
         .then(() => {
           // 推流成功
           console.log("推流成功, ", pushUrl);
           this._props.onStatusChange &&
             this._props.onStatusChange(EPublisherStatus.Available);
           this._props.onPublishOk && this._props.onPublishOk();
-          this._retryCount = 0;
           resolve("");
         })
         .catch((err) => {
           this._props.onPublishFailed && this._props.onPublishFailed();
-          if (this._retryCount < this._maxRetry) {
-            this._retryCount++;
-
-            this._retryTimer = setTimeout(() => {
-              console.log(`Retrying publish ${this._retryCount}th time`);
-              this.publish(pushUrl, resolve, reject);
-            }, RtsPublisher.RETRY_INTERVAL);
-          } else {
-            this._retryCount = 0;
-            this._props?.onRetryReachLimit && this._props?.onRetryReachLimit();
-            reporter.publishException({
-              url: this._publishUrl || "",
-              errorCode: ERtsExceptionType.RetryReachLimit,
-              retryCount: this._maxRetry,
-              traceId: this._traceId,
-            });
-            this._props.onStatusChange &&
-              this._props.onStatusChange(EPublisherStatus.Unavailable);
-            // 订阅失败
-            reject(err);
-          }
-
+          this._props?.onRetryReachLimit && this._props?.onRetryReachLimit();
+          reporter.publishException({
+            url: this._publishUrl || "",
+            errorCode: ERtsExceptionType.RetryReachLimit,
+            retryCount: this._maxRetry,
+            traceId: this._traceId,
+          });
+          this._props.onStatusChange &&
+            this._props.onStatusChange(EPublisherStatus.Unavailable);
           // 推流失败
           console.log("推流失败", err);
-          reject("");
+          reject(err);
         });
     });
   }
 
   public unPublish() {
-    this.clearRetryTimer();
     this._rtsClient?.unpublish();
   }
 
@@ -280,11 +263,9 @@ export class RtsPublisher extends RtsBase {
     }
     this._localStream = undefined;
     this._publishUrl = undefined;
-    this._retryCount = 0;
     this._publishMonitor.dispose();
   }
 
-  // called by super Class
   protected bindEvents() {
     super.bindEvents();
 
@@ -297,9 +278,6 @@ export class RtsPublisher extends RtsBase {
         switch (event.status) {
           case EConnectStatus.CONNECT_STATUS_DISCONNECTED:
             onStatusChange(EPublisherStatus.Unavailable);
-            if (this._publishUrl) {
-              this.publish(this._publishUrl);
-            }
             break;
           case EConnectStatus.CONNECT_STATUS_RECONNECTING:
             onStatusChange(EPublisherStatus.Unavailable);
@@ -310,13 +288,6 @@ export class RtsPublisher extends RtsBase {
             break;
         }
       });
-    }
-  }
-
-  private clearRetryTimer() {
-    if (this._retryTimer) {
-      clearTimeout(this._retryTimer);
-      this._retryTimer = undefined;
     }
   }
 
