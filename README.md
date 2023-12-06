@@ -5,7 +5,7 @@
 本项目为基于 [阿里云视频直播](https://www.aliyun.com/product/live) 等服务在考试监考场景下的实践项目，目前对外开源 Server 、Web 端工程
 
 - Server
-  - 基于 GOLANG 的服务端工程 （已不在维护更新，请使用下面的JAVA服务端代码）
+  - 基于 GOLANG 的服务端工程 （已不再维护更新，请使用下面的JAVA服务端代码）
   - 基于 JAVA 的服务端工程
 - Web
   - exam-invigilator 监考端前端工程
