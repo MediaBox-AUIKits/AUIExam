@@ -163,12 +163,14 @@ class Services {
     });
   }
 
-  public getInteractionToken(roomId: string, userId: string) {
-    return this.request.post("getIMToken", {
+  public getInteractionToken(roomId: string, userId: string, role: string, imServer: string[]) {
+    return this.request.post("v2/getIMToken", {
       roomId,
       deviceId: `art-${Date.now()}`,
       deviceType: "web",
       userId,
+      role,
+      imServer,
     });
   }
 

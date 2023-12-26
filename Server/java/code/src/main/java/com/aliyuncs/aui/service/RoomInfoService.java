@@ -1,10 +1,7 @@
 package com.aliyuncs.aui.service;
 
 import com.aliyuncs.aui.dto.req.*;
-import com.aliyuncs.aui.dto.res.ExamAudioInfoDto;
-import com.aliyuncs.aui.dto.res.ExamUserInfoDto;
-import com.aliyuncs.aui.dto.res.ImTokenResponseDto;
-import com.aliyuncs.aui.dto.res.RoomInfoDto;
+import com.aliyuncs.aui.dto.res.*;
 import com.aliyuncs.aui.entity.RoomInfoEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -21,6 +18,12 @@ public interface RoomInfoService extends IService<RoomInfoEntity> {
     * @author chunlei.zcl
     */
     ImTokenResponseDto getImToken(ImTokenRequestDto imTokenRequestDto);
+
+    /**
+     * 获取新IM的token
+     * @author chunlei.zcl
+     */
+    NewImTokenResponseDto getNewImToken(ImTokenRequestDto imTokenRequestDto);
 
     /**
      * 创建房间

@@ -5,7 +5,15 @@ import { reporter } from "../utils/Reporter";
 import * as RongIMLib from '@rongcloud/imlib-next';
 import { v4 as uuidv4 } from "uuid";
 import Emitter from "./Emitter";
-import { BasicMap, InteractionEvents, InteractionTypes } from "./types";
+import AliVCImEngine, { ITokenConfig, DisconnectCodes } from "./AlivcImEngine";
+import {
+  BasicMap,
+  InteractionEvents,
+  InteractionTypes,
+  ImMessage,
+  InteractionV2EventNames,
+  ImSendMessageToGroupReq,
+} from "./types";
 
 interface InteractionOptions {
   rongCloudIm?: {
@@ -33,7 +41,8 @@ interface IMessageCacheItem {
 }
 
 class Interaction extends Emitter {
-  private engine: any;
+  private engine: InstanceType<typeof AliVCImEngine>;
+  private detectMessageCache: Set<string> = new Set();
   private messageCache: Map<InteractionTypes, IMessageCacheItem> = new Map();
   public joinedGroupId: string = "";
   private rcGroupId: string = "";
@@ -60,20 +69,27 @@ class Interaction extends Emitter {
       this.listenRCEvents();
     }
 
-    const { InteractionEngine } = window.AliyunInteraction;
-    this.engine = InteractionEngine.create();
-
-    this.listenInteractionEvent();
+    // 初始化阿里云新版IM
+    this.engine = new AliVCImEngine();
   }
 
-  private listenInteractionEvent() {
-    const { InteractionEventNames } = window.AliyunInteraction;
-    this.engine.on(InteractionEventNames.Message, (eventData: any) => {
+  setTokenConfig(tokenConfig: ITokenConfig, refreshFunc: () => Promise<ITokenConfig>) {
+    this.engine.setTokenConfig(tokenConfig, refreshFunc);
+  }
+
+  async aliyunIMV2Init() {
+    await this.engine.initEngine().then(() => {
+      this.listenAliyunIMV2Event();
+    });
+  }
+
+  private listenAliyunIMV2Event() {
+    const handleMessage = (eventData: ImMessage) => {
       console.log("收到信息啦", eventData);
-      const { type, senderId, data, groupId } = eventData || {};
-      if (groupId !== this.joinedGroupId) {
-        return;
-      }
+      const { type } = eventData || {};
+      const data = JSON.parse((eventData || {}).data);
+      const senderId = (eventData || {})?.sender?.userId as string;
+
       switch (type) {
         case InteractionTypes.StreamStop:
           reporter.receiveStreamStop("aliyun", data);
@@ -141,11 +157,31 @@ class Interaction extends Emitter {
           this.emit(InteractionEvents.PubSuccess, senderId);
           break;
         case InteractionTypes.SendDetectMessage:
-          this.emit(InteractionEvents.SendDetectMessage, data);
+          this.handleDetectMessage(data);
           break;
         default:
           break;
       }
+    }
+
+    this.engine.getMessageManager()
+      ?.on(InteractionV2EventNames.RecvC2cMessage, handleMessage);
+
+    this.engine.getMessageManager()
+      ?.on(InteractionV2EventNames.RecvGroupMessage, handleMessage);
+
+    this.engine.on("disconnect", (code: number) => {
+      if (code === DisconnectCodes.Kicked || code === DisconnectCodes.OtherDeviceLogin) {
+        // 考试项目：当是被踢出群组，或是同一账号其他设备也登录了就上报异常
+        // 后续如果有需要，可以返回事件通知 UI 层展示错误提示
+        reporter.alivcIMError({ event: "disconnect", code });
+      }
+    });
+    this.engine.on("connectfailed", (error) => {
+      reporter.alivcIMError({
+        event: "connectfailed",
+        message: error && error.message ?  error.message : "no reason",
+      });
     });
   }
 
@@ -161,7 +197,8 @@ class Interaction extends Emitter {
     RongIMLib.addEventListener(RCEvents.MESSAGES, (evt) => {
       console.log("融云消息", evt);
 
-      const handleExaminee = (type: InteractionTypes, senderId: string) => {
+      const handleExaminee = (content: any, senderId: string) => {
+        const { type } = content; 
         switch (type) {
           case InteractionTypes.EnterRoom:
             reporter.receiveEnterRoom("rongcloud", { userId: senderId });
@@ -174,6 +211,9 @@ class Interaction extends Emitter {
           case InteractionTypes.PubSuccess:
             reporter.receivePubSuccess("rongcloud", { userId: senderId });
             this.emit(InteractionEvents.PubSuccess, senderId);
+            break;
+          case InteractionTypes.SendDetectMessage:
+            this.handleDetectMessage(content);
             break;
           default:
             break;
@@ -192,6 +232,7 @@ class Interaction extends Emitter {
           return;
         }
         switch (messageType) {
+          // ART:StreamPublish、ART:StreamStop两类融云自定义消息为服务端监听回调下发
           case "ART:StreamPublish":
             reporter.receiveStreamPublish("rongcloud", content);
             this.emit(InteractionEvents.StreamPublish, content);
@@ -200,9 +241,9 @@ class Interaction extends Emitter {
             reporter.receiveStreamStop("rongcloud", content);
             this.emit(InteractionEvents.StreamStop, content);
             break;
-          case "ART:Examinee":
+          case "ART:Message":
             // 来自考生的消息
-            handleExaminee((content as any).type, senderUserId);
+            handleExaminee((content as any), senderUserId);
             break;
           default:
             break;
@@ -238,6 +279,15 @@ class Interaction extends Emitter {
     });
   }
 
+  private handleDetectMessage(content: any) {
+    const { sid } = content;
+    if (this.detectMessageCache.has(sid)) {
+      return;
+    }
+    this.detectMessageCache.add(sid);
+    this.emit(InteractionEvents.SendDetectMessage, content);
+  }
+
   private handleFeedback(
     type: InteractionTypes,
     sid: string,
@@ -263,8 +313,8 @@ class Interaction extends Emitter {
     }
   }
 
-  auth(token: string): Promise<any> {
-    return this.engine.auth(token);
+  auth() {
+    return this.engine.loginEngine();
   }
 
   async connectRC(token: string, groupId: string) {
@@ -285,32 +335,19 @@ class Interaction extends Emitter {
     return this.engine.logout();
   }
 
-  leaveGroup(): Promise<any> {
+  async leaveGroup() {
     if (!this.joinedGroupId) {
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
-    return this.engine
-      .leaveGroup({
-        groupId: this.joinedGroupId,
-      })
-      .then((res: any) => {
-        this.joinedGroupId = "";
-        return res;
-      });
+    const res = await this.engine.leaveGroup();
+    this.joinedGroupId = '';
+    return res;
   }
 
-  joinGroup(groupId: string, userId: string): Promise<any> {
-    return this.engine
-      .joinGroup({
-        groupId,
-        userNick: userId,
-        broadCastType: 0, // 不广播
-        broadCastStatistics: false,
-      })
-      .then((res: any) => {
-        this.joinedGroupId = groupId;
-        return res;
-      });
+  async joinGroup(groupId: string) {
+    const res = await this.engine.joinGroup(groupId);
+    this.joinedGroupId = groupId;
+    return res;
   }
 
   private clearTimerByType(type: InteractionTypes) {
@@ -378,15 +415,25 @@ class Interaction extends Emitter {
     // 默认IM服务会对内容检测，有可能误触发错误，所以统一加上跳过检测字段
     options.skipAudit = true;
 
+    const sendAliyunMessageToGroupUsers = (parmas: any): Promise<string> => {
+      const _parmas = {
+        ...parmas,
+        data: JSON.stringify({
+          ...JSON.parse(options.data),
+          receiverIdList: parmas.receiverIdList,
+        }),
+      }
+      // 后续阿里云新版IM会支持 sendMessageToGroupUsers
+      // 现在先用群发代替(需要反馈)，消息接收者根据data里的receiverIdList去删选是否接受消息
+      return this.engine.getMessageManager()
+        ?.sendGroupMessage(_parmas) as Promise<string>;
+    }
+
     const send = (parmas: any) => {
       num += 1;
-      const ii = num;
-      this.engine.sendMessageToGroupUsers(parmas).catch((err: any) => {
+      sendAliyunMessageToGroupUsers(parmas).catch((err: any) => {
         console.log(err);
         this.reportSendMessageError(options, err);
-        // if (ii === 1) {
-        //   reject(err);
-        // }
       });
       // 融云只发一次
       if (num === 1) {
@@ -537,7 +584,7 @@ class Interaction extends Emitter {
   // 发全消息组的消息，非某部分人，考生不用反馈
   private sendMessageToGroup(
     sid: string,
-    options: BasicMap<any>,
+    options: ImSendMessageToGroupReq,
     retryNum = 3
   ) {
     let num = 1;
@@ -548,9 +595,12 @@ class Interaction extends Emitter {
     if (retryNum > 1) {
       let timer = window.setInterval(() => {
         options.groupId &&
-          this.engine.sendMessageToGroup(options).catch((err: any) => {
-            this.reportSendMessageError(options, err);
-          });
+          this.engine
+            .getMessageManager()
+            ?.sendGroupMessage(options)
+            .catch((err: any) => {
+              this.reportSendMessageError(options, err);
+            });
         num += 1;
         if (num >= retryNum) {
           window.clearInterval(timer);
@@ -559,7 +609,10 @@ class Interaction extends Emitter {
     }
 
     options.groupId &&
-      this.engine.sendMessageToGroup(options).catch((err: any) => {
+    this.engine
+      .getMessageManager()
+      ?.sendGroupMessage(options)
+      .catch((err: any) => {
         this.reportSendMessageError(options, err);
       });
     this.sendRCMessage({ sid, type }, undefined, false);

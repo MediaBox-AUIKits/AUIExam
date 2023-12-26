@@ -1,4 +1,5 @@
 export * from "./events";
+export * from "./interaction";
 
 // 上传 oss 的身份数据定义
 export interface ISTSData {

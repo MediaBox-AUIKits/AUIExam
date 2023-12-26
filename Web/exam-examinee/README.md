@@ -5,7 +5,7 @@
 
 ### 使用说明
 
-1. 在您的 html 中引入阿里云互动直播 SDK (aliyun-interaction-sdk)，可以参考 plugin.ts
+1. 在您的 html 中引入阿里云互动消息 SDK (alivc-im-sdk)，可以参考 plugin.ts
 2. 修改 src/config.ts 里的配置项，各个配置项的具体含义请看下一节
 3. 本地运行 `npm start` 或者打包 `npm run build`
 

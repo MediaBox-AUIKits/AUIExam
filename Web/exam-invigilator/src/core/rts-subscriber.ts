@@ -46,6 +46,8 @@ export class RtsSubscriber extends RtsBase {
   private _props?: IProps;
   private _streamPublishStatus?: number;
   private _audioChannelPlayer?: AudioChannelPlayer;
+  private _hiddenEl?: HTMLVideoElement;
+  private _lastStreamId?: string;
 
   constructor(props: IProps) {
     super({
@@ -86,16 +88,31 @@ export class RtsSubscriber extends RtsBase {
           }
         })
         .then((remoteStream) => {
-          // mediaElement是媒体标签audio或video
-          remoteStream.play(renderEl);
           reporter.playChannelMode(this._props?.playSingleChannel ? 'single' : 'default');
-          if (this._props?.playSingleChannel) {
-            this.initAudioChannelPlayer();
-            // @ts-ignore
-            const stream = this._audioChannelPlayer.load(remoteStream.mediaStream);
-            const oriStream = remoteStream.mediaStream;
-            oriStream?.removeTrack(remoteStream.audioTrack!);
-            oriStream?.addTrack(stream.getAudioTracks()[0]!);
+          if (!this._props?.playSingleChannel) {
+            remoteStream.play(renderEl);
+          } else {
+            this._hiddenEl = this._hiddenEl || document.createElement('video');
+            this._hiddenEl.muted = true;
+
+            // 需要确保源流可以播放，再赋值，否则会导致外层 detectCanplay 误判（音频轨道会触发 timeupdate）
+            this._hiddenEl.addEventListener('canplay', () => {
+              if (!this._hiddenEl) return;
+
+              // 中途自动重试，不会触发 sub.then，需要感知到流变化了，并重新给 renderEl 赋值
+              if (this._lastStreamId !== remoteStream.mediaStream?.id) {
+                  this._lastStreamId = remoteStream.mediaStream?.id;
+                  this.initAudioChannelPlayer();
+                  // @ts-ignore
+                  const stream = this._audioChannelPlayer.load(remoteStream.mediaStream);
+                  // construct a new stream to play
+                  const playStream = new MediaStream([remoteStream.videoTrack!, stream.getAudioTracks()[0]]);
+                  renderEl.srcObject = playStream;
+                  renderEl.play();
+              }
+            });
+
+            remoteStream.play(this._hiddenEl);
           }
 
           resolve("");
@@ -120,6 +137,13 @@ export class RtsSubscriber extends RtsBase {
   public unSubscribe() {
     this._rtsClient?.unsubscribe();
 
+    if (this._hiddenEl) {
+      this._hiddenEl.pause();
+      this._hiddenEl.srcObject = null;
+      this._hiddenEl.load();
+      this._hiddenEl = undefined;
+    }
+
     if (this._audioChannelPlayer) {
       this._audioChannelPlayer.dispose();
       this._audioChannelPlayer = undefined;
@@ -129,6 +153,7 @@ export class RtsSubscriber extends RtsBase {
   public dispose() {
     super.dispose();
     this.unSubscribe();
+    this._lastStreamId = undefined;
     this._pullUrl = undefined;
     this._props = undefined;
   }
@@ -165,6 +190,19 @@ export class RtsSubscriber extends RtsBase {
       if (evt.type !== 'sub') return;
       console.log('rts 自动重试', evt)
       this._props?.onRetry && this._props?.onRetry();
+    });
+
+    this._rtsClient.on('onError', (err) => {
+      // 重试超过次数，会把最后一次错误抛出来(自动重试过程中不会抛错误)
+      const reason = err.errorCode === 10205 ? ERetryType.Signal : ERetryType.Media;
+      this._props?.onRetryReachLimit && this._props?.onRetryReachLimit(reason);
+      reporter.subscribeException({
+        url: this._pullUrl || "",
+        errorCode: ERtsExceptionType.RetryReachLimit,
+        retryCount: RtsSubscriber.MAX_RETRY,
+        traceId: this._traceId,
+        streamPublishStatus: this._streamPublishStatus,
+      });
     })
   }
 }

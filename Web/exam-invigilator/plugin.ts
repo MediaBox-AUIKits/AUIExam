@@ -14,9 +14,12 @@ export default (api: IApi) => {
       //   eruda.init();
       // </script>`
     ]);
-    $("#root").after([
-      `<script src='https://g.alicdn.com/video-cloud-fe/aliyun-interaction-sdk/1.0.3/aliyun-interaction-sdk.web.min.js'></script>`,
-    ]);
+
+    const afterArr = [];
+    // 新阿里云互动消息 IM SDK
+    afterArr.push('<script charset="utf-8" type="text/javascript" src="https://g.alicdn.com/apsara-media-box/imp-interaction/1.1.0/alivc-im.iife.js"></script>');
+    $("#root").after(afterArr);
+
     return $;
   });
 };

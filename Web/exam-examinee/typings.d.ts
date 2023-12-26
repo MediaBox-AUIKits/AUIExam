@@ -1,11 +1,15 @@
 import "umi/typings";
 import { IConfig } from "@/config";
+import "./typings/AliVCInteraction.d.ts";
+import type { AliyunInteraction } from "./typings/AliyunInteraction.d.ts";
+import { AliVCInteraction } from "./typings/AliVCInteraction";
 
 declare global {
   interface Window {
-    AliyunInteraction: any;
+    AliyunInteraction: AliyunInteraction;
     AliyunUpload: any;
     OSS: any;
+    AliVCInteraction: typeof AliVCInteraction;
   }
 
   const CONFIG: IConfig;

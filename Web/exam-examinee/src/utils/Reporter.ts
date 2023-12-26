@@ -46,6 +46,7 @@ enum EMsgid {
   JOIN_GROUP_SUCCESS = 1007, // 加入互相消息组成功
   AUDIO_PLAYING = 1008, // 音频播放中
   AUDIO_ERROR = 1009, // 音频播放失败
+  ALIVC_IM_ERROR = 1050, // 新版IM异常上报
   // 考生端 12xx
   FEEDBACK = 1200, // 反馈成功后上报
   RECEIVE_BOARDCAST_LIVE = 1201, // 收到全员口播
@@ -348,6 +349,13 @@ export class Reporter {
   public sendMessageError(params: any = {}) {
     this.report({
       msgid: EMsgid.SEND_MESSAGE_ERROR,
+      args: { ...params },
+    });
+  }
+
+  public alivcIMError(params: any = {}) {
+    this.report({
+      msgid: EMsgid.ALIVC_IM_ERROR,
       args: { ...params },
     });
   }

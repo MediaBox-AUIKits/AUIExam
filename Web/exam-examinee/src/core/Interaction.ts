@@ -5,7 +5,14 @@ import { reporter } from "@/utils/Reporter";
 import * as RongIMLib from "@rongcloud/imlib-next";
 import { v4 as uuidv4 } from "uuid";
 import Emitter from "./Emitter";
-import { InteractionEvents, InteractionTypes } from "./types";
+import AliVCImEngine, { ITokenConfig, DisconnectCodes } from "./AlivcImEngine";
+import {
+  InteractionEvents,
+  InteractionTypes,
+  InteractionV2EventNames,
+  ImMessage,
+  ImSendMessageToUserReq,
+} from "./types";
 
 const INTERVAL = 3000; // 3秒1次
 const MAX_RETRY_NUM = 2; // 最多 2 次
@@ -35,7 +42,8 @@ interface InteractionOptions {
 const RCEvents = RongIMLib.Events;
 
 class Interaction extends Emitter {
-  private engine: any;
+  private engine: InstanceType<typeof AliVCImEngine>;
+  private userInfo?: any;
   public joinedGroupId: string = "";
   private answerUserId: string = ""; // 为监考员的id
   private messageCacheMap: Map<string, IMessageCache> = new Map();
@@ -65,23 +73,52 @@ class Interaction extends Emitter {
       );
       this.listenRCEvents();
     }
-    
 
-    const { InteractionEngine } = window.AliyunInteraction;
-    this.engine = InteractionEngine.create();
-
-    this.listenInteractionEvent();
+    // 初始化阿里云新版IM
+    this.engine = new AliVCImEngine();
   }
 
-  private listenInteractionEvent() {
-    const { InteractionEventNames } = window.AliyunInteraction;
-    this.engine.on(InteractionEventNames.Message, (eventData: any) => {
+  setTokenConfig(tokenConfig: ITokenConfig, refreshFunc: () => Promise<ITokenConfig>) {
+    this.userInfo = {
+      userId: tokenConfig?.auth?.userId,
+    };
+    this.engine.setTokenConfig(tokenConfig, refreshFunc);
+  }
+
+  async aliyunIMV2Init() {
+    await this.engine.initEngine().then(() => {
+      this.listenAliyunIMV2Event();
+    });
+  }
+
+  private listenAliyunIMV2Event() {
+    const handleMessage = (eventData: ImMessage) => {
       console.log("收到信息啦", eventData);
       const { type, data, groupId } = eventData || {};
       if (groupId !== this.joinedGroupId) {
         return;
       }
-      this.handleMessageByType("aliyun", type, data);
+      this.handleMessageByType("aliyun", type, JSON.parse(data) || {});
+    }
+
+    this.engine.getMessageManager()
+      ?.on(InteractionV2EventNames.RecvC2cMessage, handleMessage);
+
+    this.engine.getMessageManager()
+      ?.on(InteractionV2EventNames.RecvGroupMessage, handleMessage);
+
+    this.engine.on("disconnect", (code: number) => {
+      if (code === DisconnectCodes.Kicked || code === DisconnectCodes.OtherDeviceLogin) {
+        // 考试项目：当是被踢出群组，或是同一账号其他设备也登录了就上报异常
+        // 后续如果有需要，可以返回事件通知 UI 层展示错误提示
+        reporter.alivcIMError({ event: "disconnect", code });
+      }
+    });
+    this.engine.on("connectfailed", (error) => {
+      reporter.alivcIMError({
+        event: "connectfailed",
+        message: error && error.message ?  error.message : "no reason",
+      });
     });
   }
 
@@ -90,6 +127,13 @@ class Interaction extends Emitter {
     type: InteractionTypes,
     data: any
   ) {
+    // 连麦、广播、口播消息会重发，这里会根据receiverIdList过滤不需要接受的消息
+    if (
+      server === "aliyun" && data.receiverIdList && !data.receiverIdList.includes(this.userInfo.userId)
+    ) {
+      return;
+    }
+
     switch (type) {
       case InteractionTypes.StartCalling:
         this.handleStartCalling(server, data);
@@ -248,8 +292,8 @@ class Interaction extends Emitter {
     return this.emit(InteractionEvents.Reset, data);
   }
 
-  auth(token: string): Promise<any> {
-    return this.engine.auth(token);
+  auth() {
+    return this.engine.loginEngine();
   }
 
   logout(): Promise<any> {
@@ -271,35 +315,30 @@ class Interaction extends Emitter {
     return RongIMLib.disconnect();
   }
 
-  leaveGroup(): Promise<any> {
+  async leaveGroup() {
     if (!this.joinedGroupId) {
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
-    return this.engine
-      .leaveGroup({
-        groupId: this.joinedGroupId,
-      })
-      .then((res: any) => {
-        this.joinedGroupId = "";
-        return res;
-      });
+    const res = await this.engine.leaveGroup();
+    this.joinedGroupId = '';
+    return res;
   }
 
-  joinGroup(groupId: string, userId: string): Promise<any> {
-    return this.engine
-      .joinGroup({
-        groupId,
-        userNick: userId,
-        broadCastType: 0, // 不广播
-        broadCastStatistics: false,
-      })
-      .then((res: any) => {
-        this.joinedGroupId = groupId;
-        const sid = uuidv4();
-        this.sendIMMessageToInvigilator(InteractionTypes.EnterRoom, sid);
-        reporter.sendEnterRoom({ sid, server: "aliyun" });
-        return res;
-      });
+  joinGroup(groupId: string) {
+    return new Promise((resolve, reject) => {
+      this.engine
+        .joinGroup(groupId)
+        .then(res => {
+          this.joinedGroupId = groupId;
+          const sid = uuidv4();
+          this.sendIMMessageToInvigilator(InteractionTypes.EnterRoom, sid);
+          reporter.sendEnterRoom({ sid, server: "aliyun" });
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
   }
 
   public setAnswerUserId(userId: string) {
@@ -344,7 +383,9 @@ class Interaction extends Emitter {
       });
   }
 
-  private sendMessageToGroupUsers(options: any) {
+  private sendMessageToGroupUsers(options: ImSendMessageToUserReq) {
+    // 当前用到该方法的sendIMMessageToInvigilator、feedback，均为单发消息，因此用sendC2cMessage
+    // 仅支持单发消息，若需要发给多个人请勿使用这个方法
     // 执行次数
     let num = 0;
     const send = (
@@ -353,7 +394,8 @@ class Interaction extends Emitter {
       reject: Function
     ) => {
       this.engine
-        .sendMessageToGroupUsers(options)
+        .getMessageManager()
+        ?.sendC2cMessage(options)
         .then(() => {
           resolve();
         })
@@ -409,7 +451,7 @@ class Interaction extends Emitter {
       groupId: this.joinedGroupId,
       type: feedbackType,
       data: JSON.stringify({ sid }),
-      receiverIdList: [this.answerUserId],
+      receiverId: this.answerUserId,
       // 默认IM服务会对内容检测，有可能误触发错误，所以统一加上跳过检测字段
       skipAudit: true,
     };
@@ -424,13 +466,12 @@ class Interaction extends Emitter {
 
   // 主动发消息给监考员
   private sendIMMessageToInvigilator(type: InteractionTypes, sid: string, data?: any) {
-    const receiverIdList = [this.answerUserId];
     if (this.joinedGroupId) {
       const options = {
         groupId: this.joinedGroupId,
         data: JSON.stringify({ sid, data }),
         type,
-        receiverIdList,
+        receiverId: this.answerUserId,
         // 默认IM服务会对内容检测，有可能误触发错误，所以统一加上跳过检测字段
         skipAudit: true,
       };
@@ -442,18 +483,23 @@ class Interaction extends Emitter {
           }
         })
         .catch((err: any) => {
+          const excludeMessages = ["user not online"];
+          if (err && excludeMessages.includes(err.message)) {
+            // 用户不在线的错误不需要上报
+            return;
+          }
           console.log("err", err);
           this.reportSendMessageError(options, err, sid);
         });
     }
   }
 
-  private async sendRCMessageToInvigilator(type: InteractionTypes) {
+  private async sendRCMessageToInvigilator(type: InteractionTypes, sid?: string, data?: any) {
     if (!this.rcGroupId) {
       return;
     }
     const receiverIdList = [this.answerUserId];
-    const content = { type };
+    const content = { type, sid, data };
     const conversation = {
       conversationType: RongIMLib.ConversationType.GROUP,
       targetId: this.rcGroupId,
@@ -558,6 +604,7 @@ class Interaction extends Emitter {
   sendDetectMessage(data: any) {
     const sid = uuidv4();
     this.sendIMMessageToInvigilator(InteractionTypes.SendDetectMessage, sid, data);
+    this.sendRCMessageToInvigilator(InteractionTypes.SendDetectMessage, sid, data);
   }
 
   private reportSendMessageError(options: any, err: any, sid?: string) {

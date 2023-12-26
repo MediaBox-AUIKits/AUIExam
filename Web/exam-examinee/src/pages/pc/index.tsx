@@ -359,24 +359,32 @@ const PCExamPage: React.FC = () => {
   }, []);
 
   const joinGroup = async (groupId: string, roomId: string, userId: string) => {
-    function join(token: string) {
-      return new Promise(async(resove, reject) => {
+    function join() {
+      return new Promise(async (resolve, reject) => {
         try {
-          await interaction.auth(token);
-          await interaction.joinGroup(groupId, userId);
+          await interaction.aliyunIMV2Init();
+          await interaction.auth();
+          await interaction.joinGroup(groupId);
           reporter.joinGroupSuccess(groupId);
-          resove('');
+          resolve("");
         } catch (error: any) {
           reporter.joinGroupError({
             groupId,
-            ...(error ? (error.body || error) : {}),
+            ...(error ? error.body || error : {}),
           });
-          reject();
+          reject(error);
         }
       });
     }
+    const fetchIMToken = (imServer: string[]) => {
+      return services.getInteractionToken(roomId, userId, imServer);
+    };
     try {
-      const res: any = await services.getInteractionToken(roomId, userId);
+      const imServer = ["aliyun_new"];
+      if (CONFIG.rongCloudIm.enable) {
+        imServer.push("rong_cloud");
+      }
+      const res: any = await fetchIMToken(imServer);
       const promises: Promise<any>[] = [];
       if (CONFIG.rongCloudIm.enable) {
         if (res.rongToken) {
@@ -385,15 +393,19 @@ const PCExamPage: React.FC = () => {
           reporter.rongIMError({ code: -1, message: '接口未返回融云token' });
         }
       }
-      const token = res.access_token || res.accessToken;
-      if (!token) {
+      const tokenConfig = res.aliyunNewIm;
+      interaction.setTokenConfig(tokenConfig, async () => {
+        const tokenRes: any = await fetchIMToken(["aliyun_new"]);
+        return tokenRes.aliyunNewIm;
+      });
+      if (!tokenConfig) {
         reporter.joinGroupError({
           groupId,
           code: -1,
           message: '互动消息token字符串异常',
         });
       } else {
-        promises.push(join(token));
+        promises.push(join());
       }
       if (!promises.length) {
         throw {code: -1, message: '接口数据异常，无阿里云、融云 IM Token'};
@@ -477,7 +489,7 @@ const PCExamPage: React.FC = () => {
     `
       ${
         (location.href.includes('localhost') || location.href.includes('127.0.0.1')) ? CONFIG.pagePath : location.origin + location.pathname
-      }?roomId=${getParamFromSearch("roomId")}&userId=${getParamFromSearch("userId")}&token=xxxx&dd_full_screen=true&dd_orientation=landscape
+      }?roomId=${getParamFromSearch("roomId")}&userId=${getParamFromSearch("userId")}&token=xxxx&target=fullScreen
     `
   )
 

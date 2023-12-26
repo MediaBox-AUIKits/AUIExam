@@ -28,8 +28,17 @@ biz:
     access:
       key: "*********"
       secret: "*********"
+  # 融云相关配置    
+  live_rongcloud_im:
+    app_key: "******"
+    app_secret: "********"
   live_im:
     app_id: TY3****
+  # 新IM相关配置 
+  new_im:
+    appId: "********"
+    appKey: "********"
+    appSign: "********"
   live_stream:
     push_url: push.*****.vip
     pull_url: pull.*****.vip

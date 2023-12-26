@@ -1,4 +1,5 @@
 export * from "./events";
+export * from "./interaction";
 
 export interface IAudioFile {
   id: string;

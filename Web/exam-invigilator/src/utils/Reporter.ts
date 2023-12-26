@@ -51,6 +51,7 @@ enum EMsgid {
   // 目前 1008 1009 只在考生端使用了
   AUDIO_PLAYING = 1008, // 音频播放中
   AUDIO_ERROR = 1009, // 音频播放失败
+  ALIVC_IM_ERROR = 1050, // 新版IM异常上报
   // 监考端 11xx
   BOARDCAST_LIVE = 1101, // 全员口播
   STOP_BOARDCAST_LIVE = 1102,
@@ -333,6 +334,13 @@ export class Reporter {
   public sendMessageError(params: any = {}) {
     this.report({
       msgid: EMsgid.SEND_MESSAGE_ERROR,
+      args: { ...params },
+    });
+  }
+
+  public alivcIMError(params: any = {}) {
+    this.report({
+      msgid: EMsgid.ALIVC_IM_ERROR,
       args: { ...params },
     });
   }

@@ -83,9 +83,18 @@ biz:
     access:
       key: daeewe*****
       secret: we2wewe******
+  # 融云相关配置    
+  live_rongcloud_im:
+    app_key: "******"
+    app_secret: "********"
   # IM服务的应用Id
   live_im:
       app_id: TY3****
+  # 新IM相关配置 
+  new_im:
+    appId: "********"
+    appKey: "********"
+    appSign: "********"
   # 直播推拉流配置
   live_stream:
       #推流域名
@@ -133,5 +142,4 @@ mvn package -DskipTests
 cp target/*.jar target/webframework.jar
 java -Dserver.port=9000 -jar target/webframework.jar
 ```
-
 

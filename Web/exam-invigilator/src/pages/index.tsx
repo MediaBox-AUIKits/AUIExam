@@ -127,11 +127,12 @@ export default function HomePage() {
   };
 
   const joinGroup = async (groupId: string, roomId: string, userId: string) => {
-    function join(token: string) {
+    function join() {
       return new Promise(async (resove, reject) => {
         try {
-          await interaction.auth(token);
-          await interaction.joinGroup(groupId, userId);
+          await interaction.aliyunIMV2Init();
+          await interaction.auth();
+          await interaction.joinGroup(groupId);
           reporter.joinGroupSuccess(groupId);
           resove("");
         } catch (error: any) {
@@ -143,8 +144,15 @@ export default function HomePage() {
         }
       });
     }
+    const fetchIMToken = (imServer: string[]) => {
+      return services.getInteractionToken(roomId, userId, "admin", imServer);
+    };
     try {
-      const res: any = await services.getInteractionToken(roomId, userId);
+      const imServer = ["aliyun_new"];
+      if (CONFIG.rongCloudIm.enable) {
+        imServer.push("rong_cloud");
+      }
+      const res: any = await fetchIMToken(imServer);
       const promises: Promise<any>[] = [];
       if (CONFIG.rongCloudIm.enable) {
         if (res.rongToken) {
@@ -153,15 +161,19 @@ export default function HomePage() {
           reporter.rongIMError({ code: -1, message: "接口未返回融云token" });
         }
       }
-      const token = res.access_token || res.accessToken;
-      if (!token) {
+      const tokenConfig = res.aliyunNewIm;
+      if (!tokenConfig) {
         reporter.joinGroupError({
           groupId,
           code: -1,
           message: "互动消息token字符串异常",
         });
       } else {
-        promises.push(join(token));
+        interaction.setTokenConfig(tokenConfig, async () => {
+          const tokenRes: any = await fetchIMToken(["aliyun_new"]);
+          return tokenRes.aliyunNewIm;
+        });
+        promises.push(join());
       }
       if (!promises.length) {
         throw { code: -1, message: "接口数据异常，无阿里云、融云 IM Token" };

@@ -7,6 +7,7 @@ import com.aliyuncs.aui.dto.PushLiveInfo;
 import com.aliyuncs.aui.dto.req.*;
 import com.aliyuncs.aui.dto.res.ExamUserInfoDto;
 import com.aliyuncs.aui.dto.res.ImTokenResponseDto;
+import com.aliyuncs.aui.dto.res.NewImTokenResponseDto;
 import com.aliyuncs.aui.dto.res.RoomInfoDto;
 import com.aliyuncs.aui.entity.CheatConfigEntity;
 import com.aliyuncs.aui.entity.ExamEntity;
@@ -15,8 +16,10 @@ import com.aliyuncs.aui.service.CheatConfigService;
 import com.aliyuncs.aui.service.ExamService;
 import com.aliyuncs.aui.service.RoomInfoService;
 import com.aliyuncs.aui.service.VideoCloudService;
+import com.aliyuncs.aui.service.RongCloudServer;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateUtils;
 import org.springframework.beans.BeanUtils;
@@ -31,6 +34,8 @@ import java.util.UUID;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import static com.aliyuncs.aui.common.Constants.*;
 
 /**
  * 房间服务实现类
@@ -67,6 +72,9 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
     @Resource
     private VideoCloudService videoCloudService;
 
+    @Resource
+    private RongCloudServer rongCloudServer;
+
     @Override
     public ImTokenResponseDto getImToken(ImTokenRequestDto imTokenRequestDto) {
 
@@ -74,11 +82,40 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
     }
 
     @Override
+    public NewImTokenResponseDto getNewImToken(ImTokenRequestDto imTokenRequestDto) {
+
+        return videoCloudService.getNewImToken(imTokenRequestDto);
+    }
+
+    @Override
     public RoomInfoDto createRoomInfo(RoomCreateRequestDto roomCreateRequestDto) {
 
         long start = System.currentTimeMillis();
-        // 老师的ID，固定为"teacher1"，真正实现需要传入真实的创建考场老师ID
-        String groupId = videoCloudService.createMessageGroup("teacher1");
+
+        String groupId = null;
+        if (CollectionUtils.isNotEmpty(roomCreateRequestDto.getImServer())) {
+            if (roomCreateRequestDto.getImServer().contains(IM_OLD)) {
+                // 老师的ID，固定为"teacher1"，真正实现需要传入真实的创建考场老师ID
+                groupId = videoCloudService.createMessageGroup("teacher1");
+            }
+            if (roomCreateRequestDto.getImServer().contains(IM_NEW)) {
+                if (StringUtils.isEmpty(groupId)) {
+                    groupId = UUID.randomUUID().toString().replaceAll("-", "");
+                }
+                groupId = videoCloudService.createNewImMessageGroup(groupId, "teacher1");
+            }
+            // 判断是否用融云
+            if (roomCreateRequestDto.getImServer().contains(RONG_CLOUD)) {
+                if (StringUtils.isEmpty(groupId)) {
+                    groupId = UUID.randomUUID().toString().replaceAll("-", "");
+                }
+                groupId = rongCloudServer.createGroup(groupId, "examroom_" + groupId);
+            }
+        } else {
+            // 兼容老的im逻辑
+            groupId = videoCloudService.createMessageGroup("teacher1");
+        }
+
         if (StringUtils.isEmpty(groupId)) {
             log.error("createMessageGroup error. author:{}", "teacher1");
             return null;

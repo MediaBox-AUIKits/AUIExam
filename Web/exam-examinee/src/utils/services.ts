@@ -129,12 +129,14 @@ class Services {
    * @param {string} roomId
    * @return {Promise}
    */
-  public getInteractionToken(roomId: string, userId: string) {
-    return this.request.post("getIMToken", {
+  public getInteractionToken(roomId: string, userId: string, imServer: string[], role?: string) {
+    return this.request.post("v2/getIMToken", {
       roomId,
       deviceId: `art-${Date.now()}`,
       deviceType: "web",
       userId,
+      imServer,
+      role,
     });
   }
 

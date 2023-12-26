@@ -18,9 +18,12 @@ export default (api: IApi) => {
       </script>`,
       `<script src="https://g.alicdn.com/apsara-media-box/imp-cheat-detection-wasm/1.0.1/aliyun-detect-engine.js"></script>`,
     ]);
-    $("#root").after([
-      `<script src='https://g.alicdn.com/video-cloud-fe/aliyun-interaction-sdk/1.0.2/aliyun-interaction-sdk.web.min.js'></script>`,
-    ]);
+    
+    const afterArr = [];
+    // 新阿里云互动消息 IM SDK
+    afterArr.push('<script charset="utf-8" type="text/javascript" src="https://g.alicdn.com/apsara-media-box/imp-interaction/1.1.0/alivc-im.iife.js"></script>');
+    $("#root").after(afterArr);
+    
     return $;
   });
 };
