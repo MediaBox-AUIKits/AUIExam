@@ -8,6 +8,7 @@ declare global {
   interface Window {
     AliyunInteraction: AliyunInteraction;
     AliVCInteraction: typeof AliVCInteraction;
+    AliyunGcTask: any;
   }
 
   var ASSETS_VERSION: string;

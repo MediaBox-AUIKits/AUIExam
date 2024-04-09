@@ -136,6 +136,9 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
             return null;
         }
 
+        // 这里 roomId 和 groupId 为同一个
+        // 加上 roomId 后缀，防止同一时间不同人体验 demo 时，相同的 userid 导致 IM 服务互相踢下线，真实场景需要改为真实的 userid
+        String teacherId = "teacher1_" + groupId;
         RoomInfoEntity roomInfoEntity = RoomInfoEntity.builder()
                 .id(groupId)
                 .name(roomCreateRequestDto.getName())
@@ -143,7 +146,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
                 .status(0)
                 .audioStatus(0)
                 .imGroupId(groupId)
-                .createTeacher("teacher1")
+                .createTeacher(teacherId)
                 .createdAt(new Date())
                 .updatedAt(new Date())
                 .build();
@@ -188,10 +191,10 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
 
         String userName = "";
         if (userGetRequestDto.getUserId().startsWith("examinee")) {
-            // 这是简单的实现，约定学生的id为，examinee1,examinee2,examinee3,examinee4,examinee5
+            // 这是简单的实现，约定学生的id为，examinee1_{roomId},examinee2_{roomId},examinee3,examinee4,examinee5
             userName = "学生" + userGetRequestDto.getUserId().charAt(8);
         } else {
-            // 这是简单的实现，约定老师的id为，teacher1
+            // 这是简单的实现，约定老师的id为，teacher1_{roomId}
             userName = "教师" + userGetRequestDto.getUserId().charAt(7);
         }
 
@@ -226,11 +229,13 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoDao, RoomInfoEntity
 
     @Override
     public List<ExamUserInfoDto> userList(UserListRequestDto userListRequestDto) {
+        String roomId = userListRequestDto.getRoomId();
 
         List<ExamUserInfoDto> examUserInfos = new ArrayList(6);
         for (int i = 1; i < 6; i++) {
             UserGetRequestDto userGetRequestDto = new UserGetRequestDto();
-            userGetRequestDto.setUserId("examinee" + i);
+            // 增加 roomId 后缀，避免不同客户体验demo时因相同userid导致的 IM 问题，真实开发请使用真实 userId
+            userGetRequestDto.setUserId("examinee" + i + "_" + roomId);
             userGetRequestDto.setRoomId(userListRequestDto.getRoomId());
             examUserInfos.add(getUserInfo(userGetRequestDto));
         }

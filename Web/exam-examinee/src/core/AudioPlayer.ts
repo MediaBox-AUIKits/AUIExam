@@ -2,7 +2,7 @@ import { AudioContext, GainNode, AudioBufferSourceNode, MediaStreamAudioSourceNo
 import { AudioPlayerEvents } from "@/core";
 import { reporter } from "@/utils/Reporter";
 import { getSystemType } from '@/utils/common';
-import axios, { AxiosInstance } from "axios";
+import { audioManager } from './ResourceManager';
 import Emitter from "./Emitter";
 
 interface ILoadParams {
@@ -22,12 +22,9 @@ class AudioPlayer extends Emitter {
   private _gainNode?: GainNode<AudioContext>;
   private _sourceNode?: AudioBufferSourceNode<AudioContext> | MediaStreamAudioSourceNode<AudioContext>;
   private _streamDestNode?:MediaStreamAudioDestinationNode<AudioContext>;
-  private _request?: AxiosInstance;
 
   constructor() {
     super();
-
-    this._request = this.initRequest();
   }
 
   // 更新静态变量
@@ -80,16 +77,11 @@ class AudioPlayer extends Emitter {
 
   private fetchAudio(url: string) {
     return new Promise((resolve, reject) => {
-      const request = this._request;
-      if (!request) {
-        reject();
-        return;
-      }
-      request
+      audioManager
         .get(url)
         .then((res) => {
           this._context?.decodeAudioData(
-            res.data,
+            res,
             (buffer) => {
               console.log("decode response");
               this.createSourceFromBuffer(buffer, url);
@@ -145,18 +137,10 @@ class AudioPlayer extends Emitter {
     this.stop();
     this.clear();
     this.removeAllEvents();
-    this._request = undefined;
   }
 
   private log(...rest: any[]) {
     console.log("[AudioPlayer]", ...rest);
-  }
-
-  private initRequest() {
-    return axios.create({
-      responseType: "arraybuffer",
-      timeout: 10 * 1000,
-    });
   }
 
   private initContext() {

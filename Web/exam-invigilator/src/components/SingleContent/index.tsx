@@ -12,11 +12,13 @@ import {
   UserPublishStatus,
   UserRoleEnum,
 } from "@/types";
+import { updateUrlParameter } from "@/utils/common";
 import { reporter } from "@/utils/Reporter";
 import { Button, Dropdown, Space, Modal, message } from "antd";
 import { Fragment, useContext, useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import Placeholder from "../ExamineeBlock/Placeholder";
+import Rotate from "../Rotate";
 import Publish from "../rts/Publish";
 import Subscribe from "../rts/Subscribe";
 import styles from "./index.less";
@@ -31,6 +33,14 @@ const ConnectStatusMap: any = {
 
 // 兼容模式
 const COMPAT_MODE = '1';
+// 旋转按钮样式
+const ROTATE_STYLE = {
+  top: '16px',
+  right: '16px',
+  height: '30px',
+  fontSize: '20px',
+  backgroundColor: '#000'
+}
 
 interface IProps {
   mainClassName: string;
@@ -44,6 +54,7 @@ function PersonContent(props: IProps) {
   const [connecting, setConnecting] = useState<boolean>(false);
   const [connectInfoVisible, setConnectInfoVisible] = useState<boolean>(false);
   const [connectStatus, setConnectStatus] = useState<string>("not");
+  const [rotateDegree, setRotateDegree] = useState(0);
   const [subscribeUrl, setSubscribeUrl] = useState<string>("");
   const [subscribeStatus, setSubscribeStatus] = useState<string>(
     SubscribeStatusEnum.init
@@ -75,6 +86,7 @@ function PersonContent(props: IProps) {
     );
     setSubscribeStatus(SubscribeStatusEnum.init);
     setStreamPublishStatus(activeUser?.publishStatus);
+    setRotateDegree(0);
   }, [activeUser, activeUser?.isMainMonitor]);
 
   useEffect(() => {
@@ -158,6 +170,7 @@ function PersonContent(props: IProps) {
         type: "setActiveUser",
         payload: info,
       });
+      setRotateDegree(0);
     }
   };
 
@@ -168,12 +181,18 @@ function PersonContent(props: IProps) {
         type: "setActiveUser",
         payload: info,
       });
+      setRotateDegree(0);
     }
   };
 
   const startPull = () => {
     if (activeUser) {
-      setSubscribeUrl(activeUser.isMainMonitor ? activeUser.pcRtsPullUrl : activeUser.rtsPullUrl);
+      const newUrl = updateUrlParameter(
+        activeUser.isMainMonitor ? activeUser.pcRtcPullUrl : activeUser.rtcPullUrl,
+        "t",
+        Date.now().toString()
+      );
+      setSubscribeUrl(newUrl);
       setSubscribeStatus(SubscribeStatusEnum.init);
     }
   };
@@ -215,6 +234,7 @@ function PersonContent(props: IProps) {
             subscribeUrl={subscribeUrl}
             streamPublishStatus={streamPublishStatus}
             muted={false}
+            rotateDegree={rotateDegree}
             controls={false}
             onSubscribeLoading={() => {
               console.log("大流正在拉流中");
@@ -244,6 +264,7 @@ function PersonContent(props: IProps) {
             // 大屏的时候直接使用 AudioContext，扩展右声道为左右声道。（TODO: 验证非连麦情况下的监听质量）
             // 监考员角色单声道，巡考员听混音
             playSingleChannel={isInvigilator}
+            autoMix
           />
         ) : null}
 
@@ -257,6 +278,13 @@ function PersonContent(props: IProps) {
         {subscribeStatus === SubscribeStatusEnum.canplay && activeUser?.name ? (
           <div className={styles["examinee-name"]}>{activeUser.name}</div>
         ) : null}
+
+        {subscribeStatus === SubscribeStatusEnum.canplay ?
+          <Rotate
+            styles={ROTATE_STYLE}
+            onDegreeChange={setRotateDegree}
+          />
+          : null}
 
         {prevBtnVisible ? (
           <div className={styles["prev-btn"]} onClick={gotoPrev}>

@@ -1,7 +1,8 @@
 import { AliRTS } from "aliyun-rts-sdk";
 import type { LocalStream } from "aliyun-rts-sdk";
+import { compare } from "compare-versions";
 import { IVideoProfile } from "@/types/exam";
-import { deepClone, isValidPositiveNumber } from "@/utils/common";
+import { deepClone, isValidPositiveNumber, getSystemType, getIOSVersion } from "@/utils/common";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
 import SdpUtil from "@/utils/SdpUtil";
 import {
@@ -169,6 +170,21 @@ export class RtsPublisher extends RtsBase {
     }
   }
 
+  private getPreviewOptions = () => {
+    // ios15.1内核有bug https://bugs.webkit.org/show_bug.cgi?id=232006，开启 canvasRender 解决
+    if (getSystemType() !== "iOS") return undefined;
+    const iOSVersion = getIOSVersion();
+    const currentVersion = `${iOSVersion[0]}.${iOSVersion[1]}`;
+    const minVersion = "15.1";
+    const maxVersion = "15.2";
+
+    if (compare(currentVersion, minVersion, '>=') && compare(currentVersion, maxVersion, '<')) {
+      return { canvasStream: true };
+    }
+
+    return undefined;
+  }
+
   public createStream(
     renderEl: HTMLVideoElement,
     config?: { video?: any; audio?: any },
@@ -177,6 +193,7 @@ export class RtsPublisher extends RtsBase {
     // 将之前的 LocalStream 停用
     this.stopLocalStream();
     const streamConfig = {
+      skipProfile: true, // set profile manually
       audio: config?.audio ?? true,
       video: config?.video ?? true,
       screen: false,
@@ -214,7 +231,7 @@ export class RtsPublisher extends RtsBase {
 
           this._localStream = localStream;
           // 预览推流内容，mediaElement是媒体标签audio或video
-          renderEl && localStream.play(renderEl);
+          renderEl && localStream.play(renderEl, this.getPreviewOptions());
           resolve("");
         })
         .catch((err) => {
@@ -260,7 +277,7 @@ export class RtsPublisher extends RtsBase {
     this._publishMonitor?.stop();
     return new Promise((resolve, reject) => {
       if (!this._localStream) {
-        reject("no localstream");
+        reject({ message: "no localstream" });
         return;
       }
 

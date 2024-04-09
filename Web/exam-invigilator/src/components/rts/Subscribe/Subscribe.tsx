@@ -1,5 +1,5 @@
 import { ERetryType, RtsSubscriber } from "@/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface IProps {
   /**
@@ -56,6 +56,16 @@ interface IProps {
   streamPublishStatus?: number;
 
   playSingleChannel?: boolean;
+
+  /**
+   * 是否拉流之后自动开启混音（小流需要点击unmute再混音，大流拉到流直接混音）
+   */
+  autoMix?: boolean;
+
+  /**
+   * 画面旋转角度
+   */
+  rotateDegree?: number;
 }
 
 export default function Subscribe(props: IProps) {
@@ -72,6 +82,8 @@ export default function Subscribe(props: IProps) {
     autoPlay,
     streamPublishStatus,
     playSingleChannel,
+    autoMix,
+    rotateDegree
   } = props;
   const [subscriber, setSubscriber] = useState<RtsSubscriber>();
   const [activeSubscribeUrl, setActiveSubscribeUrl] = useState<string>();
@@ -91,6 +103,7 @@ export default function Subscribe(props: IProps) {
   useEffect(() => {
     const _subscriber = new RtsSubscriber({
       playSingleChannel,
+      autoMix,
       streamPublishStatus: props.streamPublishStatus,
       onRetry: () => {
         clearCanplayTimer();
@@ -139,6 +152,15 @@ export default function Subscribe(props: IProps) {
     }
   }, [subscribeUrl]);
 
+  /**
+   * 混音情况下，手动维护一个 AC，由它直接发声，video 标签是一直静音的
+   */
+  useEffect(() => {
+    muted ?
+      subscriber?.suspendAudioContext()
+      : subscriber?.resumeAudioContext();
+  }, [muted])
+
   const startSubscribe = async () => {
     if (subscriber && videoRef.current) {
       try {
@@ -172,6 +194,43 @@ export default function Subscribe(props: IProps) {
     }
   };
 
+  const rotateStyle = useMemo(() => {
+    if (rotateDegree === 0) return {};
+
+    const tag = videoRef.current;
+    if (!tag) return {};
+
+    const isVertical = tag.videoHeight > tag.videoWidth;
+    let scale = 1;
+    if (rotateDegree !== 180) { // 上下颠倒的时候不缩放
+      const viewWidth = tag.offsetWidth;
+      const viewHeight = tag.offsetHeight;
+  
+      // 实际图像高度 viewHeight
+      // 实际图像宽度 tag.videoWidth * (viewHeight / tag.videoHeight)
+      const imageWidth = tag.videoWidth * (viewHeight / tag.videoHeight);
+      const imageHeight = viewHeight;
+  
+      // 如果容器宽高比 > 图像宽高比
+      const viewRatio = viewWidth / viewHeight;
+      const imageRatio = Math.max(imageWidth, imageHeight) / Math.min(imageWidth, imageHeight); // 长边比短边
+  
+      if (isVertical) {
+        scale = viewRatio < imageRatio ?
+          viewWidth / imageHeight
+          : viewHeight / imageWidth;
+      } else {
+        scale = viewRatio < imageRatio ?
+          imageHeight / viewWidth
+          : viewHeight / imageWidth;
+      }
+    }
+
+    return {
+      transform: `rotate(${rotateDegree}deg) scale(${scale})`
+    }
+  }, [rotateDegree])
+
   return (
     <video
       autoPlay={autoPlay ?? true}
@@ -179,7 +238,7 @@ export default function Subscribe(props: IProps) {
       muted={muted ?? true}
       className={className}
       ref={videoRef}
-      style={{ ...videoStyle }}
+      style={{ ...rotateStyle, ...videoStyle }}
       onCanPlay={() => {
         detectCanPlay();
       }}

@@ -150,3 +150,16 @@ export function isValidNumber(num: number): boolean {
 export function isValidPositiveNumber(num: number): boolean {
   return isValidNumber(num) && num > 0;
 }
+
+/**
+ * 异步睡眠
+ * @param {number} time
+ * @return {*}  {Promise<void>}
+ */
+export function sleep(time: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, time);
+  });
+}

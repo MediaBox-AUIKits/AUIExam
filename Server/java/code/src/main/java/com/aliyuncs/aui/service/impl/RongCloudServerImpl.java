@@ -72,23 +72,26 @@ public class RongCloudServerImpl implements RongCloudServer {
         /**
          * API 文档: https://doc.rongcloud.cn/imserver/server/v1/im-server-api-list-v1
          *
-         *  这是简单的实现，约定学生的id为，examinee1,examinee2,examinee3,examinee4,examinee5
-         *  约定老师 id 为 teacher1 ，真实系统中请改用您的用户系统的 userid
+         *  这是简单的实现，约定学生的id为，examinee1_{roomId},examinee2_{roomId},examinee3_{roomId},examinee4_{roomId},examinee5_{roomId}
+         *  约定老师 id 为 teacher1_{roomId} ，真实系统中请改用您的用户系统的 userid
          *  需要区分 PC主机位和手机副机位的用户ID，约定是加上 pc_ 的前缀
          *  实际业务开发需要改为您的真实用户id
+         *
+         *  为了解决不同客户体验 demo 时使用同一个 userid 登录导致 IM 服务互相踢下线的问题，所有体验用户id均加上 _{roomId} 后缀
+         *  又因 groupId 和 roomId 为同一个，所以这里使用 groupId
          */
         GroupMember[] members = {
-                new GroupMember().setId("teacher1"),
-                new GroupMember().setId("examinee1"),
-                new GroupMember().setId("examinee2"),
-                new GroupMember().setId("examinee3"),
-                new GroupMember().setId("examinee4"),
-                new GroupMember().setId("examinee5"),
-                new GroupMember().setId("pc_examinee1"),
-                new GroupMember().setId("pc_examinee2"),
-                new GroupMember().setId("pc_examinee3"),
-                new GroupMember().setId("pc_examinee4"),
-                new GroupMember().setId("pc_examinee5")
+                new GroupMember().setId("teacher1_" + groupId),
+                new GroupMember().setId("examinee1_" + groupId),
+                new GroupMember().setId("examinee2_" + groupId),
+                new GroupMember().setId("examinee3_" + groupId),
+                new GroupMember().setId("examinee4_" + groupId),
+                new GroupMember().setId("examinee5_" + groupId),
+                new GroupMember().setId("pc_examinee1_" + groupId),
+                new GroupMember().setId("pc_examinee2_" + groupId),
+                new GroupMember().setId("pc_examinee3_" + groupId),
+                new GroupMember().setId("pc_examinee4_" + groupId),
+                new GroupMember().setId("pc_examinee5_" + groupId)
         };
 
         GroupModel group = new GroupModel()

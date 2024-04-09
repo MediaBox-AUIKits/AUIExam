@@ -85,6 +85,7 @@ enum EMsgid {
   RTS_PUB_STATS,
   RTS_SUB_END,
   RTS_PUB_END,
+  RTS_RUN_GC,
 
   RTS_SUB_EXCEPTION = 2100,
   RTS_PUB_EXCEPTION,
@@ -638,6 +639,15 @@ export class Reporter {
         ...params,
       },
     });
+  }
+
+  public runGC(params: { from: string }) {
+    this.report({
+      msgid: EMsgid.RTS_RUN_GC,
+      args: {
+        ...params
+      }
+    })
   }
 
   public subscribeException(params: {

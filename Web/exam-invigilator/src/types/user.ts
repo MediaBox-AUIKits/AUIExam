@@ -27,6 +27,7 @@ export interface IUser {
   pcRtsPullUrl: string; // pc小流拉流地址
   isMainMonitor: boolean; // 是否当前显示主机位
   muted: boolean;
+  rotateDegree: number; // 旋转角度
   interactiveStatus?: UserInteractiveStatus; // 考生通过IM通知老师的状态
 }
 

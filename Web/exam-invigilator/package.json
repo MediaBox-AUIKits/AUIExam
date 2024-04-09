@@ -1,6 +1,6 @@
 {
   "name": "exam-invigilator",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "scripts": {
     "build": "umi build",
@@ -14,7 +14,7 @@
     "@aliyun-sls/web-track-browser": "^0.0.3",
     "@rongcloud/engine": "5.7.0",
     "@rongcloud/imlib-next": "5.7.0",
-    "aliyun-rts-sdk": "2.6.2",
+    "aliyun-rts-sdk": "2.7.2",
     "antd": "^4.24.0",
     "axios": "^1.2.0",
     "dayjs": "^1.11.7",

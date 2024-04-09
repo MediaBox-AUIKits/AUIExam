@@ -21,7 +21,7 @@ export default (api: IApi) => {
     
     const afterArr = [];
     // 新阿里云互动消息 IM SDK
-    afterArr.push('<script charset="utf-8" type="text/javascript" src="https://g.alicdn.com/apsara-media-box/imp-interaction/1.1.0/alivc-im.iife.js"></script>');
+    afterArr.push('<script charset="utf-8" type="text/javascript" src="https://g.alicdn.com/apsara-media-box/imp-interaction/1.2.1/alivc-im.iife.js"></script>');
     $("#root").after(afterArr);
     
     return $;

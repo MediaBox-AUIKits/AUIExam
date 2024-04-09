@@ -11,9 +11,10 @@ const now = new Date();
 
 async function main() {
   const roomRes = await axios.post(
-    `${apiOrigin}/exam/createRoom`,
+    `${apiOrigin}/exam/v2/createRoom`,
     {
       name: `模拟考场${now.getMonth() + 1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}`,
+      imServer: ['aliyun_new'],
     },
     {
       headers: {

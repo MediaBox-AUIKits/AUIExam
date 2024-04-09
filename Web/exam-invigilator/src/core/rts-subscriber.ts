@@ -1,7 +1,9 @@
 import { ERtsEndType, ERtsExceptionType, reporter } from "../utils/Reporter";
 import SdpUtil from "../utils/SdpUtil";
+import { runGC } from "../utils/common";
 import { ERtsType, IProps as IBaseProps, RtsBase } from "./rts-base";
 import AudioChannelPlayer from "./AudioChannelPlayer";
+import type { RemoteStream } from "aliyun-rts-sdk";
 
 /**
  * 重试超过次数对应的场景
@@ -34,6 +36,11 @@ type IProps = {
    * 1v1连麦场景下，只取其中一个声道，用于消除考生端推过来的监考的声音（防止监考听到自己的声音）
    */
   playSingleChannel?: boolean;
+
+  /**
+   * 是否拉流之后自动开启混音（小流需要点击unmute再混音，大流拉到流直接混音）
+   */
+  autoMix?: boolean;
 } & IBaseProps;
 
 // 自动重试，timeout 也要重试，ended 也要重试；只要不收到结束的消息，就一直重试
@@ -46,8 +53,8 @@ export class RtsSubscriber extends RtsBase {
   private _props?: IProps;
   private _streamPublishStatus?: number;
   private _audioChannelPlayer?: AudioChannelPlayer;
-  private _hiddenEl?: HTMLVideoElement;
-  private _lastStreamId?: string;
+  private _hiddenEl?: HTMLVideoElement
+  private _remoteStream?: RemoteStream;
 
   constructor(props: IProps) {
     super({
@@ -69,6 +76,7 @@ export class RtsSubscriber extends RtsBase {
   ) {
     console.log("开始拉流：", pullUrl);
 
+    this.disposeAudioChannelPlayer();
     this._pullUrl = pullUrl;
     return new Promise((resolve, reject) => {
       if (!this._rtsClient) return reject("no rtsClient");
@@ -92,29 +100,34 @@ export class RtsSubscriber extends RtsBase {
           if (!this._props?.playSingleChannel) {
             remoteStream.play(renderEl);
           } else {
+            this._remoteStream = remoteStream;
+
             this._hiddenEl = this._hiddenEl || document.createElement('video');
             this._hiddenEl.muted = true;
 
-            // 需要确保源流可以播放，再赋值，否则会导致外层 detectCanplay 误判（音频轨道会触发 timeupdate）
+            renderEl.oncanplay = () => { renderEl.play() };
+
+            /**
+             * 自动重试不会进入到这里，所以要监听每次变化重新执行
+             * RTS 自动重试的逻辑：RemoteStream 不会变（id 不变），但是它的 mediaStream 是新构造的
+             */
+            // 每次自动重试成功，触发 canplay，手动刷新 renderEl 的流
             this._hiddenEl.addEventListener('canplay', () => {
-              if (!this._hiddenEl) return;
+              const curVideoTrack = (renderEl.srcObject as MediaStream)?.getVideoTracks()[0];
+              const newVideoTrack = (this._hiddenEl?.srcObject as MediaStream)?.getVideoTracks()[0];
+              // 同一个流可能多次触发 canplay
+              if (curVideoTrack?.id === newVideoTrack?.id) return;
+              renderEl.srcObject = new MediaStream([remoteStream.videoTrack!]);
 
-              // 中途自动重试，不会触发 sub.then，需要感知到流变化了，并重新给 renderEl 赋值
-              if (this._lastStreamId !== remoteStream.mediaStream?.id) {
-                  this._lastStreamId = remoteStream.mediaStream?.id;
-                  this.initAudioChannelPlayer();
-                  // @ts-ignore
-                  const stream = this._audioChannelPlayer.load(remoteStream.mediaStream);
-                  // construct a new stream to play
-                  const playStream = new MediaStream([remoteStream.videoTrack!, stream.getAudioTracks()[0]]);
-                  renderEl.srcObject = playStream;
-                  renderEl.play();
+              // 小流需要点击 unmute 才能混音，大流直接混音（因为大流由用户操作直接触发）
+              if (this._props?.autoMix) {
+                this.startMix();
               }
-            });
+            })
 
-            remoteStream.play(this._hiddenEl);
+            // RTS 每次重试会自动替换 remoteStream 中的 mediaStream，所以这里只需要 play 一次
+            remoteStream.play(this._hiddenEl); 
           }
-
           resolve("");
         })
         .catch((err) => {
@@ -137,32 +150,52 @@ export class RtsSubscriber extends RtsBase {
   public unSubscribe() {
     this._rtsClient?.unsubscribe();
 
+    this.disposeAudioChannelPlayer();
     if (this._hiddenEl) {
       this._hiddenEl.pause();
       this._hiddenEl.srcObject = null;
       this._hiddenEl.load();
       this._hiddenEl = undefined;
     }
+  }
 
-    if (this._audioChannelPlayer) {
-      this._audioChannelPlayer.dispose();
-      this._audioChannelPlayer = undefined;
+  public resumeAudioContext() {
+    // 首次点击的时候再开始混流，防止自动播放失败导致的无声问题（Chrome下无用户操作直接创建的 AC 可能导致后续无法播放声音）
+    if (this._props?.playSingleChannel && !this._audioChannelPlayer) {
+      this.startMix();
     }
+    this._audioChannelPlayer?.play();
+  }
+
+  public suspendAudioContext() {
+    this._audioChannelPlayer?.suspend();
   }
 
   public dispose() {
     super.dispose();
     this.unSubscribe();
-    this._lastStreamId = undefined;
     this._pullUrl = undefined;
     this._props = undefined;
+    this._remoteStream = undefined;
+  }
+
+  private startMix() {
+    if (!this._remoteStream) return;
+    this.initAudioChannelPlayer()
+      .load(this._remoteStream!.mediaStream!);
   }
 
   private initAudioChannelPlayer() {
+    this.disposeAudioChannelPlayer();
+    this._audioChannelPlayer = new AudioChannelPlayer();
+    return this._audioChannelPlayer;
+  }
+
+  private disposeAudioChannelPlayer() {
     if (this._audioChannelPlayer) {
       this._audioChannelPlayer.dispose();
+      this._audioChannelPlayer = undefined;
     }
-    this._audioChannelPlayer = new AudioChannelPlayer();
   }
 
   protected bindEvents() {
@@ -189,10 +222,13 @@ export class RtsSubscriber extends RtsBase {
     this._rtsClient.on('reconnect', (evt) => {
       if (evt.type !== 'sub') return;
       console.log('rts 自动重试', evt)
+      this.disposeAudioChannelPlayer(); // 每次自动重试销毁 audioMixer，下次重新绑定新的 mediaStream
       this._props?.onRetry && this._props?.onRetry();
     });
 
     this._rtsClient.on('onError', (err) => {
+      // 忽略自动播放失败
+      if(err.errorCode === 10201) return;
       // 重试超过次数，会把最后一次错误抛出来(自动重试过程中不会抛错误)
       const reason = err.errorCode === 10205 ? ERetryType.Signal : ERetryType.Media;
       this._props?.onRetryReachLimit && this._props?.onRetryReachLimit(reason);
@@ -203,6 +239,12 @@ export class RtsSubscriber extends RtsBase {
         traceId: this._traceId,
         streamPublishStatus: this._streamPublishStatus,
       });
+
+      if (err.message?.indexOf('so many') > -1) {
+        // https://bugs.chromium.org/p/chromium/issues/detail?id=825576#c24
+        runGC();
+        reporter.runGC({ from: 'err-event' });
+      }
     })
   }
 }

@@ -394,10 +394,6 @@ const PCExamPage: React.FC = () => {
         }
       }
       const tokenConfig = res.aliyunNewIm;
-      interaction.setTokenConfig(tokenConfig, async () => {
-        const tokenRes: any = await fetchIMToken(["aliyun_new"]);
-        return tokenRes.aliyunNewIm;
-      });
       if (!tokenConfig) {
         reporter.joinGroupError({
           groupId,
@@ -405,6 +401,10 @@ const PCExamPage: React.FC = () => {
           message: '互动消息token字符串异常',
         });
       } else {
+        interaction.setTokenConfig(tokenConfig, async () => {
+          const tokenRes: any = await fetchIMToken(["aliyun_new"]);
+          return tokenRes.aliyunNewIm;
+        });
         promises.push(join());
       }
       if (!promises.length) {

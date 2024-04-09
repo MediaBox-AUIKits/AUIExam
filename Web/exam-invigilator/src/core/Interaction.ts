@@ -416,6 +416,10 @@ class Interaction extends Emitter {
     options.skipAudit = true;
 
     const sendAliyunMessageToGroupUsers = (parmas: any): Promise<string> => {
+      if (!parmas.groupId) {
+        console.log('groupId 为空，未加入阿里云互动消息群组，不执行发送消息');
+        return Promise.resolve('');
+      }
       const _parmas = {
         ...parmas,
         data: JSON.stringify({

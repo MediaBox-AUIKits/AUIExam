@@ -2,6 +2,7 @@ import { ExamContext } from "@/context/exam";
 import { getSystemType } from "@/utils/common";
 import JsApi from "@/utils/JsApi";
 import { ERtsExceptionType, reporter } from "@/utils/Reporter";
+import { sleep } from "@/utils/common";
 import { EPublisherStatus, RtsPublisher, AudioMixer } from "@/core";
 import { Dialog, Modal } from "antd-mobile";
 import { compare } from "compare-versions";
@@ -149,7 +150,7 @@ export default function Publish(props: IProps) {
   const [switching, setSwitching]= useState(false);
   const [facingMode, setFacingMode] = useState<'user'|'environment'>('user');
   const [localStream, setLocalStream] = useState<LocalStream>();
-  const videoSizeTimerRef = useRef<{ timer?: NodeJS.Timer }>({
+  const videoSizeTimerRef = useRef<{ timer?: NodeJS.Timeout }>({
     timer: undefined,
   });
   const retryPubTimer = useRef<number>();
@@ -305,7 +306,16 @@ export default function Publish(props: IProps) {
         const audioMixer = new AudioMixer();
         audioMixerRef.current = audioMixer;
 
-        audioMixer.mix(remoteStream.mediaStream!, localStream.mediaStream);
+        // in case of no audio track in mediaStream on iOS15.1(canvasRenderer);
+        let localAudioStream = localStream.mediaStream;
+        if (!localAudioStream.getAudioTracks().length) {
+          localAudioStream = new MediaStream([localStream.audioTrack!])
+        }
+        try {
+          audioMixer.mix(remoteStream.mediaStream!, localAudioStream);
+        } catch (error) {
+          console.log('audioMixer mix error ->', error);
+        }
         const mixedAudioTrack = audioMixer.audioTrack;
         publisher.replaceAudioTrack(mixedAudioTrack);
         // console.warn('~~~~~~~~~~~~~~~~ 开始音频混流 ~~~~~~~~~~~~~~~~');
@@ -446,10 +456,16 @@ export default function Publish(props: IProps) {
       });
     }
 
+    // 睡眠 1 秒再推流，解决 ios15.1 创建好流后立即推流，页面会自动刷新的问题
+    await sleep(1000);
     try {
       await publisher?.publish(publishUrl);
-    } catch (error) {
-      console.log("信令失败或其他兼容错误", error);
+    } catch (error: any) {
+      reporter.publishError({
+        url: publishUrl,
+        errorCode: error?.errorCode || -1,
+        errorMsg: error?.message || "信令失败或其他兼容错误",
+      });
     }
   };
 

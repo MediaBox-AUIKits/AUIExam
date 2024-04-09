@@ -154,13 +154,13 @@ class Services {
   /**
    * 上传作弊检测消息
    */
-    public uploadDetectMessage(options: {
-      examId: string,
-      roomId: string,
-      data: string
-    }) {
-      return this.request.post("cheat/addCheatRecord", options);
-    }
+  public uploadDetectMessage(options: {
+    examId: string,
+    roomId: string,
+    data: string
+  }) {
+    return this.request.post("cheat/addCheatRecord", options);
+  }
 }
 
 export default new Services();

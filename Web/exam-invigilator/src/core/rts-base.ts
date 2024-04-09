@@ -1,4 +1,5 @@
 import { ERtsEndType, ERtsExceptionType, reporter } from "../utils/Reporter";
+import { runGC } from '../utils/common';
 import { AliRTS } from "aliyun-rts-sdk";
 import type { RtsClient } from "aliyun-rts-sdk";
 
@@ -154,6 +155,12 @@ export class RtsBase {
                   errorMsg: args.message,
                   traceId: args.tcid,
                 });
+
+                if (args.message?.indexOf('so many') > -1) {
+                  // https://bugs.chromium.org/p/chromium/issues/detail?id=825576#c24
+                  runGC();
+                  reporter.runGC({ from: 'tracker' });
+                }
               }
             }
             this._traceId = "";

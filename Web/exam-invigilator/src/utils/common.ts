@@ -10,6 +10,22 @@ export function getParamFromSearch(key: string) {
   return result ? decodeURIComponent(result[2]) : null;
 }
 
+/**
+ * 更新URL中某个参数的值
+ * @param {string} urlString 地址
+ * @param {string} param 需要更新的参数 key
+ * @param {string} paramValue 需要更新的参数 value
+ * @return {string} 更新后的 URL
+ */
+export function updateUrlParameter(urlString: string, param: string, paramValue: string): string {
+  if (!urlString) {
+    return '';
+  }
+  const url = new URL(urlString);
+  url.searchParams.set(param, paramValue);
+  return url.toString();
+}
+
 export function getSystemType() {
   if (/(iPhone|iPad|iPod|iOS)/i.test(navigator.userAgent)) {
     return "iOS";
@@ -65,4 +81,19 @@ export function sendTraceIdToRobot(url: string, traceId: string) {
   fetch(`${DINGTALK_URL}?id=${traceId}&url=${url}`).then(() => {
     console.log("TraceId sent to Dingtalk");
   });
+}
+
+export function runGC() {
+  if (window.AliyunGcTask) {
+    clearTimeout(window.AliyunGcTask);
+  }
+  window.AliyunGcTask = setTimeout(() => {
+    let img: HTMLImageElement | null = document.createElement("img");
+    img.src = window.URL.createObjectURL(new Blob([new ArrayBuffer(5e+7)])); // 50Mb or less or more depending as you wish to force/invoke GC cycle run
+    img.onerror = function() {
+      window.URL.revokeObjectURL(this.src);
+      img = null
+    }
+    window.AliyunGcTask = null;
+  }, 500)
 }
