@@ -9,7 +9,7 @@ import (
 )
 
 var identityKey = "id"
-var jwtKey = "example-c895beb520125bba#$&"
+var jwtKey = ""
 
 // User demo
 type User struct {
