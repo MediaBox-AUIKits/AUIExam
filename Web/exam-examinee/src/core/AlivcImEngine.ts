@@ -1,3 +1,5 @@
+import { AliVCInteraction } from "../../typings/AliVCInteraction";
+
 const { ImEngine } = window.AliVCInteraction;
 // 定时重新间隔
 const RETRY_INTERVAL = 5000;
@@ -21,7 +23,8 @@ export interface ITokenConfig {
   };
 }
 
-class AlivcImEngine extends ImEngine {
+class AlivcImEngine {
+  private engine: AliVCInteraction.ImEngine;
   private tokenConfig?: ITokenConfig;
   private refreshTokenFunc?: () => Promise<ITokenConfig>;
   private logined: boolean = false;
@@ -30,7 +33,7 @@ class AlivcImEngine extends ImEngine {
   private tokenexpired: boolean = false;
 
   constructor() {
-    super();
+    this.engine = new ImEngine();
   }
 
   setTokenConfig(tokenConfig: ITokenConfig, refreshFunc: () => Promise<ITokenConfig>) {
@@ -46,7 +49,7 @@ class AlivcImEngine extends ImEngine {
       throw new Error('Need set tokenConfig');
     }
 
-    await super.init({
+    await this.engine.init({
       appId: this.tokenConfig.appId,
       appSign: this.tokenConfig.appSign,
       source: 'AUIExam',
@@ -55,17 +58,21 @@ class AlivcImEngine extends ImEngine {
     this.listenConnectEvents();
   }
 
+  public on<K extends keyof AliVCInteraction.ImSdkListener>(event: K, cb: AliVCInteraction.ImSdkListener[K]) {
+    this.engine.on(event, cb as any);
+  }
+
   private listenConnectEvents() {
-    super.on('connecting', () => {
+    this.engine.on('connecting', () => {
       console.log('myengine connecting');
     });
-    super.on('connectfailed', () => {
+    this.engine.on('connectfailed', () => {
       console.log('myengine connectfailed');
     });
-    super.on('connectsuccess', () => {
+    this.engine.on('connectsuccess', () => {
       console.log('myengine connectsuccess');
     });
-    super.on('disconnect', (reason: number) => {
+    this.engine.on('disconnect', (reason: number) => {
       console.log('myengine disconnect', this.retrying, reason);
       // 目前考试项目仅需处理超时情况，其他断联时不处理
       if (this.retrying || reason !== DisconnectCodes.Timeout) {
@@ -74,7 +81,7 @@ class AlivcImEngine extends ImEngine {
       this.retrying = true;
       this.handleDisconnect();
     });
-    super.on('tokenexpired', (cb) => {
+    this.engine.on('tokenexpired', (cb) => {
       console.log('myengine tokenexpired');
       this.tokenexpired = true;
       // 直接报错，通过disconnect重连
@@ -83,7 +90,7 @@ class AlivcImEngine extends ImEngine {
         msg: 'tokenexpired',
       });
     });
-    super.on('reconnectsuccess', () => {
+    this.engine.on('reconnectsuccess', () => {
       console.log('myengine reconnectsuccess');
     });
   }
@@ -128,7 +135,7 @@ class AlivcImEngine extends ImEngine {
       throw new Error('Need set tokenConfig');
     }
 
-    const res = await super.login({
+    const res = await this.engine.login({
       user: {
         userId: this.tokenConfig.auth.userId,
       },
@@ -144,7 +151,7 @@ class AlivcImEngine extends ImEngine {
   }
 
   public async logout() {
-    const res = await super.logout();
+    const res = await this.engine.logout();
     this.logined = false;
     return res;
   }
@@ -153,9 +160,17 @@ class AlivcImEngine extends ImEngine {
    * getGroupManager
    */
   public getGroupManager() {
-    const manager = super.getGroupManager();
+    const manager = this.engine.getGroupManager();
     if (!manager) {
       throw new Error('GroupManager is not defined');
+    }
+    return manager;
+  }
+
+  public getMessageManager() {
+    const manager = this.engine.getMessageManager();
+    if (!manager) {
+      throw new Error('MessageManager is not defined');
     }
     return manager;
   }

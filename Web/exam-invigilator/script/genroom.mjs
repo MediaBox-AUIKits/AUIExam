@@ -39,7 +39,8 @@ async function main() {
     }
   );
   const examineeId = (listRes.data.data || [])[0].id;
-  console.log('考生端体验地址 -> ', `${examineeBasePath}?roomId=${roomId}&userId=${examineeId}&token=xxxx#/pc`);
+  console.log('考生端副机位体验地址 -> ', `${examineeBasePath}?roomId=${roomId}&userId=${examineeId}&token=xxxx`);
+  console.log('考生端主机位体验地址 -> ', `${examineeBasePath}?roomId=${roomId}&userId=${examineeId}&token=xxxx#/pc`);
 }
 
 main()
